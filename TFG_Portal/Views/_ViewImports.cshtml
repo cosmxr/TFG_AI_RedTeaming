@@ -1,0 +1,17 @@
+@* ============================================================
+   _ViewImports.cshtml — Importaciones globales para todas las vistas
+   Registra namespaces y Tag Helpers disponibles en todo el proyecto.
+   ============================================================ *@
+
+@* Namespace principal del proyecto *@
+@using TFG_Portal
+
+@* Namespaces de modelos — disponibles en todas las vistas sin @using adicional *@
+@using TFG_Portal.Models
+@using TFG_Portal.Services
+
+@* Tag Helpers de ASP.NET Core MVC
+   Habilita: asp-controller, asp-action, asp-for, asp-validation-for,
+             asp-append-version, asp-route-*, etc.
+   Sin esta línea los Tag Helpers se renderizan como texto plano. *@
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers

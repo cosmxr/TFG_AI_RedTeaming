@@ -1,0 +1,951 @@
+/* ============================================================
+   redteam.css — Hoja de estilos completa del portal
+   AI Red Teaming Platform - TFG Ingeniería Informática
+
+   ÍNDICE:
+   1.  Variables CSS (design tokens)
+   2.  Reset y estilos base
+   3.  Scrollbar personalizada
+   4.  Navbar
+   5.  Indicador de estado de la API
+   6.  Contenido principal y footer
+   7.  Tarjetas (card-redteam, card-kpi)
+   8.  Grid KPIs
+   9.  Botones
+   10. Badges de vulnerabilidad
+   11. Bloques de código
+   12. Tablas
+   13. Inputs y selects
+   14. Spinner de carga
+   15. Animaciones (@keyframes)
+   16. Responsive (media queries)
+   17. Utilidades generales
+   ============================================================ */
+
+
+/* ============================================================
+   1. VARIABLES CSS — Design tokens del portal
+   ============================================================ */
+:root {
+    /* Fondos */
+    --color-bg: #0d0d0d;
+    --color-bg-secondary: #1a1a1a;
+    --color-bg-tertiary: #222222;
+    --color-border: #2e2e2e;
+    /* Texto */
+    --color-text: #e8e8e8;
+    --color-text-muted: #888888;
+    --color-text-dim: #555555;
+    /* Acentos */
+    --color-green: #00ff41;
+    --color-green-hover: #00cc33;
+    --color-red: #ff4444;
+    --color-red-hover: #cc2222;
+    --color-yellow: #ffaa00;
+    /* Tipografía */
+    --font-ui: 'Inter', -apple-system, sans-serif;
+    --font-code: 'JetBrains Mono', 'Courier New', monospace;
+    /* Layout */
+    --navbar-height: 64px;
+    --radius: 4px;
+    --transition: 0.2s ease;
+}
+
+
+/* ============================================================
+   2. RESET Y ESTILOS BASE
+   ============================================================ */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-ui);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    background-image: linear-gradient(rgba(0, 255, 65, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 65, 0.025) 1px, transparent 1px);
+    background-size: 30px 30px;
+}
+
+::selection {
+    background-color: var(--color-green);
+    color: #000000;
+}
+
+a {
+    color: var(--color-green);
+    text-decoration: none;
+    transition: color var(--transition);
+}
+
+    a:hover {
+        color: var(--color-green-hover);
+    }
+
+
+/* ============================================================
+   3. SCROLLBAR PERSONALIZADA
+   ============================================================ */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0,255,65,0.4);
+    border-radius: 4px;
+}
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(0,255,65,0.7);
+    }
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,255,65,0.4) #1a1a1a;
+}
+
+
+/* ============================================================
+   4. NAVBAR
+   ============================================================ */
+.navbar-redteam {
+    background-color: var(--color-bg);
+    border-bottom: 1px solid rgba(0, 255, 65, 0.4);
+    height: var(--navbar-height);
+    padding: 0;
+    box-shadow: 0 2px 20px rgba(0, 255, 65, 0.05);
+    backdrop-filter: blur(4px);
+    z-index: 1030;
+}
+
+.navbar-logo-icon {
+    font-size: 1.5rem;
+    color: var(--color-green);
+    line-height: 1;
+    filter: drop-shadow(0 0 6px rgba(0, 255, 65, 0.5));
+}
+
+.navbar-brand-title {
+    font-family: var(--font-code);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-green);
+    letter-spacing: 0.15em;
+    line-height: 1.2;
+}
+
+.navbar-brand-subtitle {
+    font-family: var(--font-ui);
+    font-size: 0.65rem;
+    color: var(--color-text-dim);
+    letter-spacing: 0.05em;
+    line-height: 1;
+}
+
+.navbar-redteam .nav-link {
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    padding: 8px 14px !important;
+    border-radius: var(--radius);
+    transition: color var(--transition), background-color var(--transition);
+    border-bottom: 2px solid transparent;
+}
+
+    .navbar-redteam .nav-link:hover {
+        color: var(--color-green);
+        background-color: rgba(0, 255, 65, 0.05);
+    }
+
+    .navbar-redteam .nav-link.nav-link-active {
+        color: var(--color-green) !important;
+        border-bottom: 2px solid var(--color-green);
+        background-color: rgba(0, 255, 65, 0.05);
+    }
+
+.navbar-toggler {
+    border: 1px solid rgba(0, 255, 65, 0.3) !important;
+    border-radius: var(--radius) !important;
+    padding: 6px 10px !important;
+}
+
+    .navbar-toggler:focus {
+        box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.2) !important;
+    }
+
+
+/* ============================================================
+   5. INDICADOR DE ESTADO DE LA API
+   ============================================================ */
+.api-status-badge {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--color-border);
+    background-color: var(--color-bg-secondary);
+    font-family: var(--font-code);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    user-select: none;
+    transition: border-color var(--transition);
+}
+
+.api-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: background-color var(--transition);
+}
+
+.api-status-label {
+    color: var(--color-text-muted);
+}
+
+.api-activa .api-status-dot {
+    background-color: var(--color-green);
+    animation: pulse 2s infinite;
+}
+
+.api-activa {
+    border-color: rgba(0, 255, 65, 0.3);
+}
+
+.api-inactiva .api-status-dot {
+    background-color: var(--color-red);
+    animation: none;
+}
+
+.api-inactiva {
+    border-color: rgba(255, 68, 68, 0.3);
+}
+
+
+/* ============================================================
+   6. CONTENIDO PRINCIPAL Y FOOTER
+   ============================================================ */
+.main-content {
+    padding-top: calc(var(--navbar-height) + 28px);
+    padding-bottom: 56px;
+    min-height: 100vh;
+}
+
+.footer-redteam {
+    background-color: var(--color-bg);
+    border-top: 1px solid var(--color-border);
+    padding: 16px 0;
+    text-align: center;
+    font-family: var(--font-code);
+    font-size: 0.72rem;
+    color: var(--color-text-dim);
+    letter-spacing: 0.05em;
+}
+
+
+/* ============================================================
+   7. TARJETAS
+   ============================================================ */
+
+/* Tarjeta base */
+.card-redteam {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.05);
+    transition: border-color var(--transition), box-shadow var(--transition);
+    /* FIX: sin padding global — el header y el contenido lo gestionan individualmente */
+    padding: 0;
+    overflow: hidden;
+}
+
+    .card-redteam:hover {
+        border-color: rgba(0, 255, 65, 0.3);
+        box-shadow: 0 0 20px rgba(0, 255, 65, 0.08);
+    }
+
+/* Header de tarjeta */
+.card-redteam-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-border);
+    background-color: var(--color-bg-secondary);
+}
+
+.card-redteam-title {
+    font-family: var(--font-code);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+/* Contenido interno de tarjeta con padding (texto, tablas, etc.) */
+.card-redteam-body {
+    padding: 20px 24px;
+}
+
+/* Tarjeta KPI */
+.card-kpi {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.05);
+    transition: border-color var(--transition), transform var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+    .card-kpi::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--color-green), transparent);
+    }
+
+    .card-kpi:hover {
+        border-color: rgba(0, 255, 65, 0.3);
+        transform: translateY(-2px);
+    }
+
+.kpi-value {
+    font-family: var(--font-code);
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--color-green);
+    line-height: 1;
+    margin-bottom: 6px;
+    text-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+}
+
+.kpi-label {
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0;
+}
+
+.kpi-icon {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    font-size: 1.4rem;
+    opacity: 0.12;
+    color: var(--color-green);
+}
+
+/* KPI danger (rojo) */
+.card-kpi.kpi-danger .kpi-value {
+    color: var(--color-red);
+    text-shadow: 0 0 20px rgba(255, 68, 68, 0.3);
+}
+
+.card-kpi.kpi-danger::before {
+    background: linear-gradient(90deg, var(--color-red), transparent);
+}
+
+.card-kpi.kpi-danger .kpi-icon {
+    color: var(--color-red);
+}
+
+/* KPI warning (amarillo) */
+.card-kpi.kpi-warning .kpi-value {
+    color: var(--color-yellow);
+    text-shadow: 0 0 20px rgba(255, 170, 0, 0.3);
+}
+
+.card-kpi.kpi-warning::before {
+    background: linear-gradient(90deg, var(--color-yellow), transparent);
+}
+
+.card-kpi.kpi-warning .kpi-icon {
+    color: var(--color-yellow);
+    opacity: 0.15;
+}
+
+
+/* ============================================================
+   8. GRID KPIs — definición única y sin conflictos
+   ============================================================ */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+
+/* ============================================================
+   9. BOTONES
+   ============================================================ */
+.btn-redteam-primary {
+    background: transparent;
+    border: 1px solid var(--color-green);
+    color: var(--color-green);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 8px 20px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background-color var(--transition), color var(--transition), box-shadow var(--transition);
+    letter-spacing: 0.03em;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+}
+
+    .btn-redteam-primary:hover,
+    .btn-redteam-primary:focus {
+        background-color: var(--color-green);
+        color: #0d0d0d;
+        box-shadow: 0 0 12px rgba(0, 255, 65, 0.4);
+        outline: none;
+    }
+
+    .btn-redteam-primary:active {
+        background-color: var(--color-green-hover);
+        border-color: var(--color-green-hover);
+    }
+
+.btn-redteam-danger {
+    background: transparent;
+    border: 1px solid var(--color-red);
+    color: var(--color-red);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 8px 20px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background-color var(--transition), color var(--transition), box-shadow var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+}
+
+    .btn-redteam-danger:hover,
+    .btn-redteam-danger:focus {
+        background-color: var(--color-red);
+        color: #ffffff;
+        box-shadow: 0 0 12px rgba(255, 68, 68, 0.4);
+        outline: none;
+    }
+
+.btn-redteam-secondary {
+    background: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 8px 20px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: border-color var(--transition), color var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+}
+
+    .btn-redteam-secondary:hover {
+        border-color: var(--color-text-muted);
+        color: var(--color-text);
+    }
+
+.btn-redteam-primary.btn-lg,
+.btn-redteam-danger.btn-lg {
+    padding: 12px 28px;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+
+/* ============================================================
+   10. BADGES
+   ============================================================ */
+.badge-vulnerable {
+    background: rgba(255, 68, 68, 0.15);
+    border: 1px solid var(--color-red);
+    color: var(--color-red);
+    border-radius: 3px;
+    font-family: var(--font-code);
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 3px 8px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.badge-seguro {
+    background: rgba(0, 255, 65, 0.1);
+    border: 1px solid var(--color-green);
+    color: var(--color-green);
+    border-radius: 3px;
+    font-family: var(--font-code);
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 3px 8px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.badge-vulnerable-lg {
+    font-size: 0.95rem;
+    padding: 8px 20px;
+    border-radius: var(--radius);
+}
+
+.badge-seguro-lg {
+    font-size: 0.95rem;
+    padding: 8px 20px;
+    border-radius: var(--radius);
+}
+
+.badge-tipo-ataque {
+    background: rgba(0, 255, 65, 0.08);
+    border: 1px solid rgba(0, 255, 65, 0.3);
+    color: var(--color-green);
+    border-radius: 3px;
+    font-family: var(--font-code);
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    letter-spacing: 0.05em;
+    display: inline-block;
+}
+
+.badge-auditoria-activa {
+    background: rgba(0, 255, 65, 0.08);
+    border: 1px solid rgba(0, 255, 65, 0.2);
+    color: var(--color-text-muted);
+    border-radius: 3px;
+    font-family: var(--font-code);
+    font-size: 0.68rem;
+    padding: 2px 7px;
+    display: inline-block;
+}
+
+
+/* ============================================================
+   11. BLOQUES DE CÓDIGO
+   ============================================================ */
+.code-block {
+    background-color: #111111;
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-green);
+    border-radius: var(--radius);
+    font-family: var(--font-code);
+    font-size: 0.875rem;
+    color: var(--color-text);
+    padding: 16px 20px;
+    overflow-x: auto;
+    line-height: 1.7;
+    tab-size: 4;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 255, 65, 0.3) #111111;
+}
+
+    .code-block::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .code-block::-webkit-scrollbar-track {
+        background: #111111;
+    }
+
+    .code-block::-webkit-scrollbar-thumb {
+        background: rgba(0, 255, 65, 0.3);
+        border-radius: 3px;
+    }
+
+.code-block-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background-color: #0a0a0a;
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-green);
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    font-family: var(--font-code);
+    font-size: 0.72rem;
+    color: var(--color-text-dim);
+    letter-spacing: 0.05em;
+}
+
+    .code-block-header + .code-block {
+        border-top: none;
+        border-radius: 0 0 var(--radius) var(--radius);
+    }
+
+.code-block pre {
+    margin: 0;
+    padding: 0;
+    background: transparent !important;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.code-block code {
+    font-family: inherit;
+    background: transparent !important;
+    padding: 0 !important;
+}
+
+
+/* ============================================================
+   12. TABLAS
+   ============================================================ */
+
+/* FIX: el wrapper ya tiene borde y radio; la tabla no necesita borde propio */
+.table-responsive-redteam {
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+
+.table-redteam {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    color: var(--color-text);
+    /* FIX: margen 0 para que el borde del wrapper no se duplique */
+    margin: 0;
+}
+
+    .table-redteam thead th {
+        background-color: var(--color-bg-tertiary);
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--color-border);
+        white-space: nowrap;
+    }
+
+    .table-redteam tbody tr {
+        border-bottom: 1px solid var(--color-border);
+        transition: background-color var(--transition);
+    }
+
+        /* FIX: última fila sin borde inferior para no duplicar el del wrapper */
+        .table-redteam tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .table-redteam tbody tr:hover {
+            background-color: var(--color-bg-tertiary);
+            cursor: pointer;
+        }
+
+    .table-redteam tbody td {
+        padding: 10px 16px;
+        vertical-align: middle;
+        color: var(--color-text);
+    }
+
+    .table-redteam .col-meta {
+        font-family: var(--font-code);
+        font-size: 0.78rem;
+        color: var(--color-text-muted);
+    }
+
+
+/* ============================================================
+   13. INPUTS Y SELECTS
+   ============================================================ */
+.input-redteam {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    border-radius: var(--radius);
+    padding: 9px 14px;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    width: 100%;
+    transition: border-color var(--transition), box-shadow var(--transition);
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+    .input-redteam:focus {
+        border-color: var(--color-green);
+        box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.15);
+    }
+
+    .input-redteam::placeholder {
+        color: var(--color-text-dim);
+    }
+
+select.input-redteam {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2300ff41' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    cursor: pointer;
+}
+
+    select.input-redteam option {
+        background-color: var(--color-bg-secondary);
+        color: var(--color-text);
+    }
+
+textarea.input-redteam {
+    resize: vertical;
+    min-height: 100px;
+    font-family: var(--font-code);
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+.label-redteam {
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    display: block;
+}
+
+.field-validation-error {
+    font-size: 0.78rem;
+    color: var(--color-red);
+    font-family: var(--font-code);
+    margin-top: 4px;
+    display: block;
+}
+
+
+/* ============================================================
+   14. SPINNER DE CARGA
+   ============================================================ */
+.spinner-redteam-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 40px;
+}
+
+.spinner-redteam {
+    width: 44px;
+    height: 44px;
+    border: 3px solid rgba(0, 255, 65, 0.15);
+    border-top-color: var(--color-green);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.spinner-redteam-text {
+    font-family: var(--font-code);
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    letter-spacing: 0.05em;
+}
+
+.typing-dots span {
+    animation: blink 1.4s infinite;
+}
+
+    .typing-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .typing-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+
+/* ============================================================
+   15. ANIMACIONES
+   ============================================================ */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 255, 65, 0.6);
+    }
+
+    50% {
+        box-shadow: 0 0 0 5px rgba(0, 255, 65, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(0, 255, 65, 0);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes blink {
+    0%, 100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.fade-in-up {
+    animation: fadeInUp 0.3s ease forwards;
+}
+
+
+/* ============================================================
+   16. RESPONSIVE
+   ============================================================ */
+
+/* Tablets (< 1200px): KPIs en 2 columnas */
+@media (max-width: 1199.98px) {
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Tablets y móviles (< 992px): navbar colapsada */
+@media (max-width: 991.98px) {
+    .navbar-collapse {
+        background-color: var(--color-bg);
+        border-top: 1px solid var(--color-border);
+        padding: 12px 0;
+        margin-top: 8px;
+    }
+
+    .navbar-redteam .nav-link {
+        padding: 10px 16px !important;
+        border-bottom: none !important;
+    }
+
+    .api-status-badge {
+        margin: 8px 16px;
+        width: fit-content;
+    }
+}
+
+/* Móviles (< 576px) */
+@media (max-width: 575.98px) {
+    .main-content {
+        padding-top: calc(var(--navbar-height) + 16px);
+        padding-bottom: 32px;
+    }
+
+    /* KPIs: 2 columnas en móvil */
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .kpi-value {
+        font-size: 1.8rem;
+    }
+
+    .code-block {
+        font-size: 0.78rem;
+    }
+
+    .btn-redteam-primary,
+    .btn-redteam-danger,
+    .btn-redteam-secondary {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Pantallas grandes (>= 1400px) */
+@media (min-width: 1400px) {
+    .kpi-value {
+        font-size: 2.8rem;
+    }
+}
+
+/* Accesibilidad: sin animaciones */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+
+/* ============================================================
+   17. UTILIDADES GENERALES
+   ============================================================ */
+.divider-redteam {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: 24px 0;
+}
+
+.mono {
+    font-family: var(--font-code);
+    font-size: 0.85em;
+}
+
+.text-danger-redteam {
+    color: var(--color-red);
+}
+
+.text-success-redteam {
+    color: var(--color-green);
+}
+
+.text-warning-redteam {
+    color: var(--color-yellow);
+}

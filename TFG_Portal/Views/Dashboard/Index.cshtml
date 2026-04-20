@@ -1,0 +1,260 @@
+@* ============================================================
+   Views/Dashboard/Index.cshtml — Vista principal del Dashboard
+   AI Red Teaming Platform - TFG Ingeniería Informática
+   ============================================================ *@
+
+@model TFG_Portal.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+@section Styles {
+<style>
+    .page-title {
+        font-family: var(--font-code);
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--color-green);
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        margin: 0;
+    }
+    .page-subtitle {
+        font-size: 0.78rem;
+        color: var(--color-text-muted);
+        margin: 2px 0 0 0;
+    }
+    .alert-redteam {
+        background: rgba(255, 68, 68, 0.08);
+        border: 1px solid rgba(255, 68, 68, 0.3);
+        border-left: 3px solid var(--color-red);
+        border-radius: var(--radius);
+        padding: 12px 16px;
+        font-size: 0.85rem;
+        color: var(--color-red);
+        font-family: var(--font-code);
+    }
+    .empty-state-redteam {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        color: var(--color-text-dim);
+        font-size: 0.85rem;
+        text-align: center;
+        min-height: 160px;
+    }
+</style>
+}
+
+@* ============================================================
+   CABECERA DE PÁGINA
+   ============================================================ *@
+<div class="d-flex align-items-center justify-content-between mb-4 pt-2">
+    <div>
+        <h1 class="page-title">
+            <i class="fa-solid fa-gauge me-2" style="color: var(--color-green); font-size: 1.1rem;"></i>
+            Dashboard
+        </h1>
+        <p class="page-subtitle">Resumen del sistema de auditoría</p>
+    </div>
+    <div class="text-end">
+        <span class="label-redteam d-block">ÚLTIMA ACTUALIZACIÓN</span>
+        <span class="mono" style="color: var(--color-text-muted); font-size: 0.8rem;">
+            @Model.FechaUltimaActualizacion.ToString("dd/MM/yyyy HH:mm:ss")
+        </span>
+    </div>
+</div>
+
+@* Mensaje de error si los datos no se cargaron *@
+@if (ViewData["Error"] != null)
+{
+    <div class="alert-redteam mb-4">
+        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+        @ViewData["Error"]
+    </div>
+}
+
+@* ============================================================
+   SECCIÓN 1 — KPIs (grid de 4 tarjetas métricas)
+   ============================================================ *@
+<div class="kpi-grid mb-4">
+
+    @* KPI 1 — Total Auditorías *@
+    <div class="card-kpi fade-in-up">
+        <i class="fa-solid fa-folder-open kpi-icon"></i>
+        <div class="kpi-value">@Model.TotalAuditorias</div>
+        <div class="kpi-label">Auditorías totales</div>
+    </div>
+
+    @* KPI 2 — Total Ataques *@
+    <div class="card-kpi fade-in-up" style="animation-delay: 0.05s;">
+        <i class="fa-solid fa-bolt kpi-icon"></i>
+        <div class="kpi-value">@Model.TotalAtaques</div>
+        <div class="kpi-label">Ataques lanzados</div>
+    </div>
+
+    @* KPI 3 — Porcentaje Vulnerables (rojo) *@
+    <div class="card-kpi kpi-danger fade-in-up" style="animation-delay: 0.1s;">
+        <i class="fa-solid fa-triangle-exclamation kpi-icon"></i>
+        <div class="kpi-value">
+            @Model.PorcentajeVulnerables.ToString("0.0")<span style="font-size:1.2rem">%</span>
+        </div>
+        <div class="kpi-label">% Vulnerable</div>
+    </div>
+
+    @* KPI 4 — Tipos de Ataque (amarillo) *@
+    <div class="card-kpi kpi-warning fade-in-up" style="animation-delay: 0.15s;">
+        <i class="fa-solid fa-crosshairs kpi-icon"></i>
+        <div class="kpi-value">@Model.TiposAtaqueDistintos</div>
+        <div class="kpi-label">Tipos de ataque</div>
+    </div>
+
+</div>
+
+@* ============================================================
+   SECCIÓN 2 — GRÁFICOS
+   ============================================================ *@
+<div class="row g-3 mb-4">
+
+    @* Gráfico de línea — Actividad últimos 7 días *@
+    <div class="col-xl-7">
+        <div class="card-redteam h-100">
+            <div class="card-redteam-header">
+                <span class="card-redteam-title">
+                    <i class="fa-solid fa-chart-line me-2"></i>
+                    Actividad — Últimos 7 días
+                </span>
+            </div>
+            @if (Model.AtaquesPorDiaJson == "[]")
+            {
+                <div class="empty-state-redteam">
+                    <i class="fa-solid fa-chart-line fa-2x mb-3"></i>
+                    <p>Sin actividad registrada en los últimos 7 días</p>
+                </div>
+            }
+            else
+            {
+                <div style="position: relative; height: 280px; padding: 12px 4px 4px 4px;">
+                    <canvas id="chartLinea"></canvas>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* Gráfico de barras — Ataques por tipo *@
+    <div class="col-xl-5">
+        <div class="card-redteam h-100">
+            <div class="card-redteam-header">
+                <span class="card-redteam-title">
+                    <i class="fa-solid fa-chart-bar me-2"></i>
+                    Ataques por tipo
+                </span>
+            </div>
+            @if (Model.AtaquesPorTipoJson == "[]")
+            {
+                <div class="empty-state-redteam">
+                    <i class="fa-solid fa-chart-bar fa-2x mb-3"></i>
+                    <p>No hay ataques registrados</p>
+                </div>
+            }
+            else
+            {
+                <div style="position: relative; height: 280px; padding: 12px 4px 4px 4px;">
+                    <canvas id="chartBarras"></canvas>
+                </div>
+            }
+        </div>
+    </div>
+
+</div>
+
+@* ============================================================
+   SECCIÓN 3 — TABLA ÚLTIMAS AUDITORÍAS
+   ============================================================ *@
+<div class="card-redteam fade-in-up">
+    <div class="card-redteam-header">
+        <span class="card-redteam-title">
+            <i class="fa-solid fa-clock-rotate-left me-2"></i>
+            Últimas Auditorías
+        </span>
+        <a asp-controller="Auditoria" asp-action="Historial"
+           class="btn-redteam-secondary" style="padding: 4px 12px; font-size: 0.78rem;">
+            Ver todo <i class="fa-solid fa-arrow-right ms-1"></i>
+        </a>
+    </div>
+
+    @if (!Model.UltimasAuditorias.Any())
+    {
+        <div class="empty-state-redteam">
+            <i class="fa-solid fa-folder-open fa-2x mb-3"></i>
+            <p>No hay auditorías registradas todavía.</p>
+            <a asp-controller="Auditoria" asp-action="Nueva" class="btn-redteam-primary mt-2">
+                <i class="fa-solid fa-crosshairs me-1"></i> Lanzar primer ataque
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive-redteam">
+            <table class="table-redteam">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Modelo IA</th>
+                        <th>Descripción</th>
+                        <th>Ataques</th>
+                        <th>Vulnerables</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var auditoria in Model.UltimasAuditorias)
+                    {
+                        <tr onclick="window.location='/Auditoria/Historial'" style="cursor:pointer;">
+                            <td class="col-meta">#@auditoria.Id</td>
+                            <td>
+                                <span class="mono" style="font-size:0.75rem; color: var(--color-text-muted);">
+                                    @(auditoria.ModeloIa.Length > 28
+                                        ? auditoria.ModeloIa.Substring(0, 28) + "…"
+                                        : auditoria.ModeloIa)
+                                </span>
+                            </td>
+                            <td style="color: var(--color-text-muted); font-size: 0.83rem;">
+                                @auditoria.Descripcion
+                            </td>
+                            <td class="col-meta text-center">@auditoria.TotalAtaques</td>
+                            <td class="text-center">
+                                @if (auditoria.AtaquesVulnerables > 0)
+                                {
+                                    <span class="badge-vulnerable">@auditoria.AtaquesVulnerables</span>
+                                }
+                                else
+                                {
+                                    <span style="color: var(--color-text-dim);">—</span>
+                                }
+                            </td>
+                            <td><span class="badge-auditoria-activa">@auditoria.EstadoBadge</span></td>
+                            <td class="col-meta">@auditoria.FechaCreacion.ToString("dd/MM/yy HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* ============================================================
+   DATOS JSON PARA CHART.JS
+   Embebidos en la página de forma segura con type="application/json"
+   El JS los lee con JSON.parse(document.getElementById(...).textContent)
+   ============================================================ *@
+<script id="data-ataques-por-tipo" type="application/json">@Html.Raw(Model.AtaquesPorTipoJson)</script>
+<script id="data-ataques-por-dia"  type="application/json">@Html.Raw(Model.AtaquesPorDiaJson)</script>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script src="~/js/dashboard.js" asp-append-version="true"></script>
+}
