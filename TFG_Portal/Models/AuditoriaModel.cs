@@ -22,6 +22,8 @@ namespace TFG_Portal.Models
         /// </summary>
         public int Id { get; set; }
 
+        public int ProyectoId { get; set; }
+
         /// <summary>
         /// Identificador del modelo de IA usado en la sesión.
         /// Ejemplo: "WhiteRabbitNeo/WhiteRabbitNeo-2.5-Llama-3.1-8B"
@@ -56,6 +58,8 @@ namespace TFG_Portal.Models
     {
         /// <summary>Identificador de la auditoría.</summary>
         public int Id { get; set; }
+
+        public int ProyectoId { get; set; }
 
         /// <summary>Modelo de IA utilizado.</summary>
         public string ModeloIa { get; set; } = string.Empty;

@@ -949,3 +949,324 @@ textarea.input-redteam {
 .text-warning-redteam {
     color: var(--color-yellow);
 }
+/* ============================================================
+   18. SIDEBAR Y APP WRAPPER
+   ============================================================ */
+
+:root {
+    --sidebar-width: 220px;
+    --sidebar-bg: #111111;
+    --sidebar-border: rgba(0, 255, 65, 0.12);
+}
+
+/* Wrapper que contiene sidebar + contenido */
+.app-wrapper {
+    display: flex;
+    min-height: 100vh;
+    padding-top: var(--navbar-height);
+}
+
+/* Sidebar fijo a la izquierda */
+.sidebar {
+    width: var(--sidebar-width);
+    min-height: calc(100vh - var(--navbar-height));
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
+    position: fixed;
+    top: var(--navbar-height);
+    left: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 100;
+    padding: 20px 0 12px;
+}
+
+/* Contenido principal desplazado a la derecha */
+.main-content {
+    margin-left: var(--sidebar-width);
+    padding-top: 28px;
+    padding-bottom: 56px;
+    flex: 1;
+    min-width: 0;
+}
+
+/* ---- Proyecto activo info ---- */
+.sidebar-project-info {
+    padding: 0 16px 16px;
+}
+
+.sidebar-project-label {
+    font-family: var(--font-code);
+    font-size: 0.62rem;
+    color: var(--color-text-dim);
+    letter-spacing: 0.12em;
+    margin-bottom: 6px;
+}
+
+.sidebar-project-name {
+    font-family: var(--font-code);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-green);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+}
+
+.sidebar-project-meta {
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    color: var(--color-text-dim);
+}
+
+/* ---- Divider ---- */
+.sidebar-divider {
+    border: none;
+    border-top: 1px solid var(--sidebar-border);
+    margin: 8px 0;
+}
+
+/* ---- Nav links ---- */
+.sidebar-nav {
+    padding: 8px 0;
+}
+
+.sidebar-nav-label {
+    font-family: var(--font-code);
+    font-size: 0.6rem;
+    color: var(--color-text-dim);
+    letter-spacing: 0.14em;
+    padding: 0 16px 6px;
+}
+
+.sidebar-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    font-family: var(--font-ui);
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: color var(--transition), background-color var(--transition), border-color var(--transition);
+}
+
+    .sidebar-nav-link i {
+        width: 14px;
+        text-align: center;
+        font-size: 0.8rem;
+        opacity: 0.7;
+    }
+
+    .sidebar-nav-link:hover {
+        color: var(--color-green);
+        background-color: rgba(0, 255, 65, 0.04);
+    }
+
+    .sidebar-nav-link.active {
+        color: var(--color-green);
+        border-left-color: var(--color-green);
+        background-color: rgba(0, 255, 65, 0.06);
+    }
+
+/* ---- Items de proyecto ---- */
+.sidebar-proyecto-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 16px;
+    background: none;
+    border: none;
+    border-left: 2px solid transparent;
+    color: var(--color-text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-align: left;
+    transition: color var(--transition), background-color var(--transition), border-color var(--transition);
+}
+
+    .sidebar-proyecto-item i {
+        width: 14px;
+        font-size: 0.75rem;
+        opacity: 0.6;
+        flex-shrink: 0;
+    }
+
+.sidebar-proyecto-nombre {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-proyecto-count {
+    font-family: var(--font-code);
+    font-size: 0.65rem;
+    color: var(--color-text-dim);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    flex-shrink: 0;
+}
+
+.sidebar-proyecto-item:hover {
+    color: var(--color-green);
+    background-color: rgba(0, 255, 65, 0.04);
+}
+
+.sidebar-proyecto-item.active {
+    color: var(--color-green);
+    border-left-color: var(--color-green);
+    background-color: rgba(0, 255, 65, 0.06);
+}
+
+/* ---- Nuevo proyecto link ---- */
+.sidebar-nav-new {
+    margin-top: 4px;
+    color: var(--color-text-dim) !important;
+    font-size: 0.78rem;
+    border-style: dashed;
+    border-left: 2px dashed transparent;
+}
+
+    .sidebar-nav-new:hover {
+        color: var(--color-green) !important;
+        border-left-color: rgba(0, 255, 65, 0.3) !important;
+    }
+
+/* ---- Footer del sidebar ---- */
+.sidebar-footer {
+    margin-top: auto;
+    padding: 12px 16px 0;
+    border-top: 1px solid var(--sidebar-border);
+}
+
+.sidebar-version {
+    font-family: var(--font-code);
+    font-size: 0.62rem;
+    color: var(--color-text-dim);
+    letter-spacing: 0.06em;
+}
+
+/* ---- Selector de proyecto en navbar ---- */
+.input-redteam-sm {
+    padding: 4px 28px 4px 10px;
+    font-size: 0.78rem;
+    width: auto;
+    max-width: 180px;
+}
+
+/* ---- Alertas inline ---- */
+.alert-redteam {
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    border: 1px solid;
+}
+
+.alert-redteam-danger {
+    background: rgba(255, 68, 68, 0.08);
+    border-color: rgba(255, 68, 68, 0.3);
+    color: var(--color-red);
+}
+
+/* ---- Responsive sidebar ---- */
+@media (max-width: 991.98px) {
+    .sidebar {
+        display: none;
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
+}
+
+/* Selector de proyecto navbar en móvil */
+@media (max-width: 991.98px) {
+    .proyecto-selector {
+        display: none !important;
+    }
+}
+
+/* ============================================================
+   19. PÁGINA HEADERS Y ELEMENTOS DE FORMULARIO EXTRA
+   ============================================================ */
+
+/* Page header */
+.page-header {
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.page-header-icon {
+    width: 44px;
+    height: 44px;
+    background: rgba(0, 255, 65, 0.08);
+    border: 1px solid rgba(0, 255, 65, 0.2);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-green);
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.page-title {
+    font-family: var(--font-code);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.page-subtitle {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    margin: 4px 0 0;
+}
+
+/* Form hints */
+.form-hint {
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    color: var(--color-text-dim);
+    margin-top: 5px;
+    display: block;
+}
+
+/* Info box */
+.info-box {
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    background: rgba(0, 255, 65, 0.04);
+    border: 1px solid rgba(0, 255, 65, 0.12);
+    border-radius: var(--radius);
+}
+
+.info-box-icon {
+    color: var(--color-green);
+    opacity: 0.6;
+    font-size: 0.9rem;
+    padding-top: 2px;
+    flex-shrink: 0;
+}
+
+.info-box-text {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+}

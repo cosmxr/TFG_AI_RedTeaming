@@ -1,0 +1,212 @@
+@* ============================================================
+   Views/Auditoria/Detalle.cshtml — Detalle completo de un ataque
+   AI Red Teaming Platform - TFG Ingeniería Informática
+   ============================================================ *@
+
+@model TFG_Portal.Models.AtaqueDetalle
+@{
+    ViewData["Title"] = $"Ataque #{Model.Id}";
+}
+
+@* ── Cabecera ── *@
+<div class="d-flex align-items-center justify-content-between mb-4 pt-2">
+    <div class="d-flex align-items-center gap-3">
+        <div class="page-header-icon">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </div>
+        <div>
+            <h1 class="page-title">Ataque #@Model.Id</h1>
+            <p class="page-subtitle">
+                <span class="badge-tipo-ataque me-2">@Model.TipoAtaque</span>
+                @Model.FechaCreacion.ToString("dd/MM/yyyy HH:mm:ss")
+            </p>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-controller="Auditoria" asp-action="Historial"
+           class="btn-redteam-secondary">
+            <i class="fa-solid fa-arrow-left"></i>
+            Volver
+        </a>
+        <a asp-controller="Auditoria" asp-action="Nueva"
+           class="btn-redteam-primary">
+            <i class="fa-solid fa-crosshairs"></i>
+            Nuevo Ataque
+        </a>
+    </div>
+</div>
+
+@* ── Resultado badge grande ── *@
+<div class="mb-4">
+    @if (Model.FueVulnerable)
+    {
+        <span class="badge-vulnerable badge-vulnerable-lg">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>VULNERABLE
+        </span>
+    }
+    else
+    {
+        <span class="badge-seguro badge-seguro-lg">
+            <i class="fa-solid fa-shield-halved me-2"></i>SEGURO
+        </span>
+    }
+</div>
+
+<div class="row g-4">
+
+    @* ── Columna izquierda ── *@
+    <div class="col-lg-8">
+
+        @* Prompt enviado *@
+        <div class="card-redteam mb-4">
+            <div class="card-redteam-header">
+                <span class="card-redteam-title">
+                    <i class="fa-solid fa-arrow-up-from-bracket me-2" style="color: var(--color-yellow);"></i>
+                    PROMPT ENVIADO
+                </span>
+            </div>
+            <div class="card-redteam-body">
+                <div class="code-block-header">
+                    <span>user prompt</span>
+                </div>
+                <div class="code-block">
+                    <pre><code>@Model.PromptEnviado</code></pre>
+                </div>
+            </div>
+        </div>
+
+        @* Respuesta de la IA *@
+        <div class="card-redteam">
+            <div class="card-redteam-header">
+                <span class="card-redteam-title">
+                    <i class="fa-solid fa-robot me-2" style="color: var(--color-green);"></i>
+                    RESPUESTA DE WHITERABBITNEO
+                </span>
+            </div>
+            <div class="card-redteam-body">
+                <div class="code-block-header">
+                    <span>assistant response</span>
+                    <span style="color: var(--color-green); font-size: 0.68rem;">
+                        @Model.ModeloIa
+                    </span>
+                </div>
+                <div class="code-block" style="max-height: 480px; overflow-y: auto;">
+                    <pre><code>@Model.RespuestaIa</code></pre>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    @* ── Columna derecha — Metadata ── *@
+    <div class="col-lg-4">
+
+        <div class="card-redteam mb-4">
+            <div class="card-redteam-header">
+                <span class="card-redteam-title">
+                    <i class="fa-solid fa-circle-info me-2"></i>
+                    METADATOS
+                </span>
+            </div>
+            <div class="card-redteam-body" style="padding: 0;">
+                <dl class="meta-list">
+                    <div class="meta-item">
+                        <dt>ID Ataque</dt>
+                        <dd class="mono">#@Model.Id</dd>
+                    </div>
+                    <div class="meta-item">
+                        <dt>Tipo</dt>
+                        <dd><span class="badge-tipo-ataque">@Model.TipoAtaque</span></dd>
+                    </div>
+                    <div class="meta-item">
+                        <dt>Resultado</dt>
+                        <dd>
+                            @if (Model.FueVulnerable)
+                            {
+                                <span class="badge-vulnerable">Vulnerable</span>
+                            }
+                            else
+                            {
+                                <span class="badge-seguro">Seguro</span>
+                            }
+                        </dd>
+                    </div>
+                    <div class="meta-item">
+                        <dt>Fecha</dt>
+                        <dd class="mono" style="font-size: 0.75rem;">@Model.FechaCreacion.ToString("dd/MM/yyyy HH:mm:ss")</dd>
+                    </div>
+                    <div class="meta-item">
+                        <dt>ID Auditoría</dt>
+                        <dd class="mono">#@Model.AuditoriaId</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card-redteam">
+            <div class="card-redteam-header">
+                <span class="card-redteam-title">
+                    <i class="fa-solid fa-folder-open me-2"></i>
+                    AUDITORÍA PADRE
+                </span>
+            </div>
+            <div class="card-redteam-body" style="padding: 0;">
+                <dl class="meta-list">
+                    <div class="meta-item">
+                        <dt>Modelo IA</dt>
+                        <dd class="mono" style="font-size: 0.7rem; word-break: break-all;">
+                            @Model.ModeloIa
+                        </dd>
+                    </div>
+                    <div class="meta-item">
+                        <dt>Descripción</dt>
+                        <dd style="color: var(--color-text-muted); font-size: 0.8rem;">
+                            @(string.IsNullOrEmpty(Model.AuditoriaDescripcion) ? "—" : Model.AuditoriaDescripcion)
+                        </dd>
+                    </div>
+                    <div class="meta-item">
+                        <dt>Fecha inicio</dt>
+                        <dd class="mono" style="font-size: 0.75rem;">
+                            @Model.AuditoriaFechaCreacion.ToString("dd/MM/yyyy HH:mm")
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Styles {
+<style>
+    .meta-list {
+        margin: 0;
+        padding: 0;
+    }
+    .meta-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--color-border);
+        gap: 12px;
+    }
+    .meta-item:last-child { border-bottom: none; }
+    .meta-item dt {
+        font-family: var(--font-ui);
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--color-text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .meta-item dd {
+        margin: 0;
+        text-align: right;
+        font-size: 0.82rem;
+        color: var(--color-text);
+    }
+</style>
+}

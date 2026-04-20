@@ -1,7 +1,10 @@
 @* ============================================================
-   _Layout.cshtml — Layout base compartido por todas las vistas
+   _Layout.cshtml — Layout base con sidebar
    AI Red Teaming Platform - TFG Ingeniería Informática
    ============================================================ *@
+
+@using TFG_Portal.ViewModels
+@inject TFG_Portal.Services.IDatabaseService DbService
 
 @{
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
@@ -9,7 +12,14 @@
     var apiActiva = ViewData["ApiEstado"] as bool? ?? false;
     var apiClase  = apiActiva ? "api-activa" : "api-inactiva";
     var apiTexto  = apiActiva ? "ACTIVA" : "INACTIVA";
+
+    // Proyecto activo desde sesión
+    var proyectoActivoId = Context.Session.GetInt32("ProyectoActivoId") ?? 0;
+    var todosProyectos   = (await DbService.GetAllProyectosAsync()).ToList();
+    var proyectoActivo   = todosProyectos.FirstOrDefault(p => p.Id == proyectoActivoId)
+                           ?? todosProyectos.FirstOrDefault();
 }
+
 <!DOCTYPE html>
 <html lang="es" data-bs-theme="dark">
 <head>
@@ -56,7 +66,33 @@
                 </span>
             </a>
 
-            <button class="navbar-toggler" type="button"
+            @if (todosProyectos.Any())
+            {
+                <div class="proyecto-selector d-none d-lg-flex align-items-center gap-2 ms-4">
+                    <i class="fa-solid fa-folder-open" style="color: var(--color-green); opacity: 0.7; font-size: 0.8rem;"></i>
+                    <form asp-controller="Proyecto" asp-action="Seleccionar" method="post" class="d-flex align-items-center gap-2">
+                        @Html.AntiForgeryToken()
+                        <select name="proyectoId"
+                                class="input-redteam input-redteam-sm proyecto-select"
+                                onchange="this.form.submit()"
+                                title="Proyecto activo">
+                            @foreach (var p in todosProyectos)
+                            {
+                                if (p.Id == proyectoActivo?.Id)
+                                {
+                                    <option value="@p.Id" selected>@p.Nombre</option>
+                                }
+                                else
+                                {
+                                    <option value="@p.Id">@p.Nombre</option>
+                                }
+                            }
+                        </select>
+                    </form>
+                </div>
+            }
+
+            <button class="navbar-toggler ms-auto" type="button"
                     data-bs-toggle="collapse"
                     data-bs-target="#navbarMain"
                     aria-controls="navbarMain"
@@ -67,28 +103,6 @@
 
             <div class="collapse navbar-collapse" id="navbarMain">
                 <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
-
-                    <li class="nav-item">
-                        <a class="nav-link @(currentController == "Dashboard" ? "nav-link-active" : "")"
-                           asp-controller="Dashboard" asp-action="Index">
-                            <i class="fa-solid fa-gauge me-1"></i>Dashboard
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link @(currentController == "Auditoria" && currentAction == "Nueva" ? "nav-link-active" : "")"
-                           asp-controller="Auditoria" asp-action="Nueva">
-                            <i class="fa-solid fa-crosshairs me-1"></i>Nueva Auditoría
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link @(currentController == "Auditoria" && currentAction == "Historial" ? "nav-link-active" : "")"
-                           asp-controller="Auditoria" asp-action="Historial">
-                            <i class="fa-solid fa-list-ul me-1"></i>Historial
-                        </a>
-                    </li>
-
                     <li class="nav-item ms-lg-3">
                         <div id="api-status-container" class="api-status-badge @apiClase">
                             <span class="api-status-dot"></span>
@@ -102,11 +116,99 @@
         </div>
     </nav>
 
-    <main class="main-content">
-        <div class="container-fluid px-4">
-            @RenderBody()
-        </div>
-    </main>
+    <div class="app-wrapper">
+
+        <aside class="sidebar" id="sidebar">
+
+            <div class="sidebar-project-info">
+                <div class="sidebar-project-label">PROYECTO ACTIVO</div>
+                <div class="sidebar-project-name">
+                    @(proyectoActivo?.Nombre ?? "Sin proyecto")
+                </div>
+                @if (proyectoActivo != null)
+                {
+                    <div class="sidebar-project-meta">
+                        <i class="fa-solid fa-calendar-days me-1"></i>
+                        @proyectoActivo.FechaInicio.ToString("dd/MM/yyyy")
+                        <span class="mx-1">·</span>
+                        <i class="fa-solid fa-layer-group me-1"></i>
+                        @proyectoActivo.TotalAuditorias aud.
+                    </div>
+                }
+            </div>
+
+            <hr class="sidebar-divider" />
+
+            <nav class="sidebar-nav">
+                <div class="sidebar-nav-label">NAVEGACIÓN</div>
+
+                <a class="sidebar-nav-link @(currentController == "Dashboard" ? "active" : "")"
+                   asp-controller="Dashboard" asp-action="Index">
+                    <i class="fa-solid fa-gauge"></i>
+                    <span>Dashboard</span>
+                </a>
+
+                <a class="sidebar-nav-link @(currentController == "Auditoria" && currentAction == "Nueva" ? "active" : "")"
+                   asp-controller="Auditoria" asp-action="Nueva">
+                    <i class="fa-solid fa-crosshairs"></i>
+                    <span>Nueva Auditoría</span>
+                </a>
+
+                <a class="sidebar-nav-link @(currentController == "Auditoria" && currentAction == "Historial" ? "active" : "")"
+                   asp-controller="Auditoria" asp-action="Historial">
+                    <i class="fa-solid fa-list-ul"></i>
+                    <span>Historial</span>
+                </a>
+            </nav>
+
+            <hr class="sidebar-divider" />
+
+            <div class="sidebar-nav">
+                <div class="sidebar-nav-label">PROYECTOS</div>
+
+                @foreach (var p in todosProyectos)
+                {
+                    <form asp-controller="Proyecto" asp-action="Seleccionar" method="post"
+                          style="margin:0;">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="proyectoId" value="@p.Id" />
+                        <button type="submit"
+                                class="sidebar-proyecto-item @(p.Id == proyectoActivo?.Id ? "active" : "")">
+                            <i class="fa-solid fa-folder@(p.Id == proyectoActivo?.Id ? "-open" : "")"></i>
+                            <span class="sidebar-proyecto-nombre">@p.Nombre</span>
+                            <span class="sidebar-proyecto-count">@p.TotalAuditorias</span>
+                        </button>
+                    </form>
+                }
+
+                <a class="sidebar-nav-link sidebar-nav-new"
+                   asp-controller="Proyecto" asp-action="Crear">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Nuevo Proyecto</span>
+                </a>
+            </div>
+
+            <div class="sidebar-footer">
+                <span class="sidebar-version">v1.0 · TFG 2026</span>
+            </div>
+
+        </aside>
+
+        <main class="main-content">
+            <div class="container-fluid px-4">
+
+                @if (ViewData["Error"] != null)
+                {
+                    <div class="alert-redteam alert-redteam-danger mb-4">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                        @ViewData["Error"]
+                    </div>
+                }
+
+                @RenderBody()
+            </div>
+        </main>
+    </div>
 
     <footer class="footer-redteam">
         <div class="container-fluid px-4">
@@ -122,7 +224,7 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmOJFBcE3LRsYwJwMsKMZJdT8Bl"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmOJFBwBbQ6zHoAQN/UxG3LLHEgR"
             crossorigin="anonymous"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -140,11 +242,6 @@
             const container = document.getElementById('api-status-container');
             const statusText = document.getElementById('api-status-text');
 
-            /**
-             * Actualiza las clases CSS y el texto del indicador
-             * según si la API está activa o no.
-             * @@param {boolean} activa - true si la API responde correctamente
-             */
             function actualizarIndicador(activa) {
                 if (!container || !statusText) return;
                 if (activa) {
@@ -158,12 +255,6 @@
                 }
             }
 
-            /**
-             * Hace fetch al endpoint /Dashboard/ApiEstado y
-             * actualiza el indicador con el resultado.
-             * Si el fetch falla (red caída), marca como inactiva.
-             * @@param — sin parámetros, función autónoma
-             */
             async function checkApiEstado() {
                 try {
                     const response = await fetch('/Dashboard/ApiEstado', {
@@ -171,15 +262,9 @@
                         headers: { 'Accept': 'application/json' },
                         signal: AbortSignal.timeout(5000)
                     });
-
-                    if (!response.ok) {
-                        actualizarIndicador(false);
-                        return;
-                    }
-
+                    if (!response.ok) { actualizarIndicador(false); return; }
                     const data = await response.json();
                     actualizarIndicador(data.activo === true);
-
                 } catch (err) {
                     actualizarIndicador(false);
                 }

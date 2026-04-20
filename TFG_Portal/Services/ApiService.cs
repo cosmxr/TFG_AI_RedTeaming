@@ -66,24 +66,26 @@ namespace TFG_Portal.Services
         // POST /atacar — Lanza un ataque y devuelve el resultado
         // --------------------------------------------------------
         public async Task<AtaqueResultado?> LanzarAtaqueAsync(string tipoAtaque,
-                                                               string? promptPersonalizado)
+                                                          string? promptPersonalizado,
+                                                          int proyectoId)  // ← NUEVO
         {
             try
             {
-                _logger.LogInformation("Lanzando ataque de tipo: {TipoAtaque}", tipoAtaque);
+                _logger.LogInformation("Lanzando ataque {TipoAtaque} en proyecto {Id}",
+                    tipoAtaque, proyectoId);
                 var client = _httpClientFactory.CreateClient("FastAPI");
 
                 var requestBody = new Dictionary<string, object?>
                 {
                     ["tipo_ataque"] = tipoAtaque,
                     ["prompt_personalizado"] = string.IsNullOrWhiteSpace(promptPersonalizado)
-                        ? null
-                        : (object?)promptPersonalizado
+                                                    ? null
+                                                    : (object?)promptPersonalizado,
+                    ["proyecto_id"] = proyectoId   // ← NUEVO
                 };
 
                 var jsonBody = JsonSerializer.Serialize(requestBody, _jsonOptions);
                 var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-                _logger.LogDebug("JSON enviado a /atacar: {Json}", jsonBody);
 
                 var response = await client.PostAsync("/atacar", content);
 
@@ -96,18 +98,11 @@ namespace TFG_Portal.Services
                 }
 
                 var responseJson = await response.Content.ReadAsStringAsync();
-                _logger.LogDebug("Respuesta de /atacar: {Json}", responseJson);
-
-                var resultado = JsonSerializer.Deserialize<AtaqueResultado>(responseJson, _jsonOptions);
-                _logger.LogInformation("Ataque completado. ID: {Id}, Vulnerable: {Vulnerable}",
-                    resultado?.Id, resultado?.FueVulnerable);
-
-                return resultado;
+                return JsonSerializer.Deserialize<AtaqueResultado>(responseJson, _jsonOptions);
             }
             catch (TaskCanceledException)
             {
-                _logger.LogError("Timeout al lanzar ataque {TipoAtaque}: WhiteRabbitNeo tardó demasiado",
-                    tipoAtaque);
+                _logger.LogError("Timeout al lanzar ataque {TipoAtaque}", tipoAtaque);
                 return null;
             }
             catch (HttpRequestException ex)
@@ -122,7 +117,7 @@ namespace TFG_Portal.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error inesperado al lanzar ataque {TipoAtaque}", tipoAtaque);
+                _logger.LogError(ex, "Error inesperado al lanzar ataque");
                 return null;
             }
         }

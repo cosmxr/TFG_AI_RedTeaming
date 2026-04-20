@@ -1,0 +1,135 @@
+@* ============================================================
+   Views/Proyecto/Crear.cshtml — Formulario de nuevo proyecto
+   AI Red Teaming Platform - TFG Ingeniería Informática
+   ============================================================ *@
+
+@{
+    ViewData["Title"] = "Nuevo Proyecto";
+}
+
+<div class="page-header mb-4">
+    <div class="d-flex align-items-center gap-3">
+        <div class="page-header-icon">
+            <i class="fa-solid fa-folder-plus"></i>
+        </div>
+        <div>
+            <h1 class="page-title">Nuevo Proyecto</h1>
+            <p class="page-subtitle">Crea un espacio de análisis aislado para una IA objetivo</p>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7 col-xl-6">
+
+        <div class="card-redteam">
+            <div class="card-redteam-header">
+                <span class="card-redteam-title">
+                    <i class="fa-solid fa-terminal me-2" style="color: var(--color-green);"></i>
+                    CONFIGURACIÓN DEL PROYECTO
+                </span>
+            </div>
+
+            <div class="card-redteam-body">
+
+                @if (ViewData["Error"] != null)
+                {
+                    <div class="alert-redteam alert-redteam-danger mb-4">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                        @ViewData["Error"]
+                    </div>
+                }
+
+                <form asp-controller="Proyecto" asp-action="Crear" method="post"
+                      id="form-crear-proyecto">
+                    @Html.AntiForgeryToken()
+
+                    <div class="mb-4">
+                        <label class="label-redteam" for="nombre">
+                            Nombre del proyecto <span style="color: var(--color-red);">*</span>
+                        </label>
+                        <input type="text"
+                               id="nombre"
+                               name="nombre"
+                               class="input-redteam"
+                               placeholder="ej: Análisis WhiteRabbitNeo v2.5"
+                               maxlength="100"
+                               autocomplete="off"
+                               required />
+                        <span class="field-validation-error"
+                              data-valmsg-for="nombre"
+                              data-valmsg-replace="true"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="label-redteam" for="modeloIa">
+                            Modelo de IA objetivo
+                        </label>
+                        <input type="text"
+                               id="modeloIa"
+                               name="modeloIa"
+                               class="input-redteam"
+                               placeholder="ej: WhiteRabbitNeo/WhiteRabbitNeo-2.5-Llama-3.1-8B"
+                               maxlength="200"
+                               autocomplete="off" />
+                        <small class="form-hint">
+                            Identificador del modelo tal como aparece en HuggingFace
+                        </small>
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="label-redteam" for="descripcion">
+                            Descripción / Objetivos
+                        </label>
+                        <textarea id="descripcion"
+                                  name="descripcion"
+                                  class="input-redteam"
+                                  rows="4"
+                                  maxlength="500"
+                                  placeholder="Describe los objetivos del análisis, el alcance y las técnicas que se van a probar..."></textarea>
+                        <small class="form-hint">Máximo 500 caracteres</small>
+                    </div>
+
+                    <div class="d-flex gap-3">
+                        <button type="submit"
+                                class="btn-redteam-primary flex-fill"
+                                id="btn-crear">
+                            <i class="fa-solid fa-folder-plus"></i>
+                            Crear Proyecto
+                        </button>
+                        <a asp-controller="Dashboard" asp-action="Index"
+                           class="btn-redteam-secondary">
+                            <i class="fa-solid fa-arrow-left"></i>
+                            Cancelar
+                        </a>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+
+        <div class="info-box mt-4">
+            <div class="info-box-icon">
+                <i class="fa-solid fa-circle-info"></i>
+            </div>
+            <div class="info-box-text">
+                Cada proyecto es un entorno aislado. Las auditorías y ataques que lances
+                quedarán asociados exclusivamente a este proyecto, permitiendo comparar
+                resultados entre distintos modelos o configuraciones.
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Feedback visual al enviar el formulario
+    document.getElementById('form-crear-proyecto')
+        .addEventListener('submit', function () {
+            const btn = document.getElementById('btn-crear');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creando...';
+            btn.disabled = true;
+        });
+</script>
+}

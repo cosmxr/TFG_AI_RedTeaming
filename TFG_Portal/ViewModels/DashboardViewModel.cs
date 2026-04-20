@@ -29,6 +29,11 @@ namespace TFG_Portal.ViewModels
         /// <summary>Número de tipos de ataque distintos usados.</summary>
         public int TiposAtaqueDistintos { get; set; }
 
+        public ProyectoResumen? ProyectoActivo { get; set; }
+
+        public IEnumerable<ProyectoResumen> TodosProyectos { get; set; }
+    = Enumerable.Empty<ProyectoResumen>();
+
         // -------------------------------------------------------
         // SECCIÓN GRÁFICOS — Serializados a JSON para Chart.js
         // -------------------------------------------------------

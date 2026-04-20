@@ -24,16 +24,6 @@
         color: var(--color-text-muted);
         margin: 2px 0 0 0;
     }
-    .alert-redteam {
-        background: rgba(255, 68, 68, 0.08);
-        border: 1px solid rgba(255, 68, 68, 0.3);
-        border-left: 3px solid var(--color-red);
-        border-radius: var(--radius);
-        padding: 12px 16px;
-        font-size: 0.85rem;
-        color: var(--color-red);
-        font-family: var(--font-code);
-    }
     .empty-state-redteam {
         display: flex;
         flex-direction: column;
@@ -45,13 +35,46 @@
         text-align: center;
         min-height: 160px;
     }
+    .proyecto-banner {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 16px;
+        background: rgba(0, 255, 65, 0.04);
+        border: 1px solid rgba(0, 255, 65, 0.12);
+        border-radius: var(--radius);
+        margin-bottom: 20px;
+    }
+    .proyecto-banner-icon {
+        color: var(--color-green);
+        font-size: 1rem;
+        opacity: 0.7;
+        flex-shrink: 0;
+    }
+    .proyecto-banner-nombre {
+        font-family: var(--font-code);
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-green);
+    }
+    .proyecto-banner-meta {
+        font-family: var(--font-ui);
+        font-size: 0.75rem;
+        color: var(--color-text-dim);
+        margin-top: 2px;
+    }
+    .proyecto-banner-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 8px;
+    }
 </style>
 }
 
 @* ============================================================
    CABECERA DE PÁGINA
    ============================================================ *@
-<div class="d-flex align-items-center justify-content-between mb-4 pt-2">
+<div class="d-flex align-items-center justify-content-between mb-3 pt-2">
     <div>
         <h1 class="page-title">
             <i class="fa-solid fa-gauge me-2" style="color: var(--color-green); font-size: 1.1rem;"></i>
@@ -67,35 +90,58 @@
     </div>
 </div>
 
-@* Mensaje de error si los datos no se cargaron *@
+@* Banner del proyecto activo *@
+@if (Model.ProyectoActivo != null)
+{
+    <div class="proyecto-banner">
+        <div class="proyecto-banner-icon">
+            <i class="fa-solid fa-folder-open"></i>
+        </div>
+        <div>
+            <div class="proyecto-banner-nombre">@Model.ProyectoActivo.Nombre</div>
+            <div class="proyecto-banner-meta">
+                <i class="fa-solid fa-calendar-days me-1"></i>
+                Iniciado el @Model.ProyectoActivo.FechaInicio.ToString("dd/MM/yyyy")
+                <span class="mx-2">·</span>
+                <i class="fa-solid fa-layer-group me-1"></i>
+                @Model.ProyectoActivo.TotalAuditorias auditorías
+            </div>
+        </div>
+        <div class="proyecto-banner-actions">
+            <a asp-controller="Auditoria" asp-action="Nueva"
+               class="btn-redteam-primary" style="padding: 5px 14px; font-size: 0.78rem;">
+                <i class="fa-solid fa-crosshairs"></i>
+                Nueva Auditoría
+            </a>
+        </div>
+    </div>
+}
+
 @if (ViewData["Error"] != null)
 {
-    <div class="alert-redteam mb-4">
+    <div class="alert-redteam alert-redteam-danger mb-4">
         <i class="fa-solid fa-triangle-exclamation me-2"></i>
         @ViewData["Error"]
     </div>
 }
 
 @* ============================================================
-   SECCIÓN 1 — KPIs (grid de 4 tarjetas métricas)
+   SECCIÓN 1 — KPIs
    ============================================================ *@
 <div class="kpi-grid mb-4">
 
-    @* KPI 1 — Total Auditorías *@
     <div class="card-kpi fade-in-up">
         <i class="fa-solid fa-folder-open kpi-icon"></i>
         <div class="kpi-value">@Model.TotalAuditorias</div>
         <div class="kpi-label">Auditorías totales</div>
     </div>
 
-    @* KPI 2 — Total Ataques *@
     <div class="card-kpi fade-in-up" style="animation-delay: 0.05s;">
         <i class="fa-solid fa-bolt kpi-icon"></i>
         <div class="kpi-value">@Model.TotalAtaques</div>
         <div class="kpi-label">Ataques lanzados</div>
     </div>
 
-    @* KPI 3 — Porcentaje Vulnerables (rojo) *@
     <div class="card-kpi kpi-danger fade-in-up" style="animation-delay: 0.1s;">
         <i class="fa-solid fa-triangle-exclamation kpi-icon"></i>
         <div class="kpi-value">
@@ -104,7 +150,6 @@
         <div class="kpi-label">% Vulnerable</div>
     </div>
 
-    @* KPI 4 — Tipos de Ataque (amarillo) *@
     <div class="card-kpi kpi-warning fade-in-up" style="animation-delay: 0.15s;">
         <i class="fa-solid fa-crosshairs kpi-icon"></i>
         <div class="kpi-value">@Model.TiposAtaqueDistintos</div>
@@ -118,7 +163,6 @@
    ============================================================ *@
 <div class="row g-3 mb-4">
 
-    @* Gráfico de línea — Actividad últimos 7 días *@
     <div class="col-xl-7">
         <div class="card-redteam h-100">
             <div class="card-redteam-header">
@@ -143,7 +187,6 @@
         </div>
     </div>
 
-    @* Gráfico de barras — Ataques por tipo *@
     <div class="col-xl-5">
         <div class="card-redteam h-100">
             <div class="card-redteam-header">
@@ -189,7 +232,7 @@
     {
         <div class="empty-state-redteam">
             <i class="fa-solid fa-folder-open fa-2x mb-3"></i>
-            <p>No hay auditorías registradas todavía.</p>
+            <p>No hay auditorías en este proyecto todavía.</p>
             <a asp-controller="Auditoria" asp-action="Nueva" class="btn-redteam-primary mt-2">
                 <i class="fa-solid fa-crosshairs me-1"></i> Lanzar primer ataque
             </a>
@@ -246,11 +289,6 @@
     }
 </div>
 
-@* ============================================================
-   DATOS JSON PARA CHART.JS
-   Embebidos en la página de forma segura con type="application/json"
-   El JS los lee con JSON.parse(document.getElementById(...).textContent)
-   ============================================================ *@
 <script id="data-ataques-por-tipo" type="application/json">@Html.Raw(Model.AtaquesPorTipoJson)</script>
 <script id="data-ataques-por-dia"  type="application/json">@Html.Raw(Model.AtaquesPorDiaJson)</script>
 

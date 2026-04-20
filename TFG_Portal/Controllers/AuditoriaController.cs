@@ -1,87 +1,130 @@
 // ============================================================
-// AuditoriaController.cs — Controlador de las vistas de auditoría
+// AuditoriaController.cs — Lanzar ataques y ver historial
 // AI Red Teaming Platform - TFG Ingeniería Informática
-//
-// En este Paso 3 solo incluimos el esqueleto con:
-//   · Inyección de dependencias
-//   · Acciones GET vacías para Nueva, Historial y Detalle
-// Los cuerpos completos se desarrollarán en los Pasos 5, 6 y 7.
 // ============================================================
 
 using Microsoft.AspNetCore.Mvc;
 using TFG_Portal.Services;
+using TFG_Portal.ViewModels;
 
 namespace TFG_Portal.Controllers
 {
-    /// <summary>
-    /// Controlador que gestiona el flujo completo de auditorías:
-    /// lanzar ataques, ver historial y consultar detalles.
-    /// </summary>
     public class AuditoriaController : Controller
     {
-        // -------------------------------------------------------
-        // Dependencias inyectadas
-        // -------------------------------------------------------
-
-        /// <summary>Acceso a SQL Server con Dapper.</summary>
-        private readonly IDatabaseService _dbService;
-
-        /// <summary>Llamadas a la API FastAPI de Python.</summary>
         private readonly IApiService _apiService;
-
-        /// <summary>Logger del controlador.</summary>
+        private readonly IDatabaseService _dbService;
         private readonly ILogger<AuditoriaController> _logger;
+        private const string SESSION_PROYECTO = "ProyectoActivoId";
 
-        /// <summary>
-        /// Constructor con inyección de dependencias.
-        /// </summary>
-        public AuditoriaController(
-            IDatabaseService dbService,
-            IApiService apiService,
-            ILogger<AuditoriaController> logger)
+        // Tipos de ataque disponibles
+        private static readonly List<string> TiposAtaque =
+            new() { "XSS", "SQLi", "LFI", "CSRF", "SSRF", "RCE" };
+
+        public AuditoriaController(IApiService apiService,
+                                    IDatabaseService dbService,
+                                    ILogger<AuditoriaController> logger)
         {
-            _dbService = dbService;
             _apiService = apiService;
+            _dbService = dbService;
             _logger = logger;
         }
 
         // ============================================================
         // GET /Auditoria/Nueva
-        // Formulario para lanzar un nuevo ataque.
-        // El cuerpo completo se desarrollará en el Paso 5.
         // ============================================================
         [HttpGet]
-        public IActionResult Nueva()
+        public async Task<IActionResult> Nueva()
         {
-            // TODO (Paso 5): Preparar ViewModel con lista de tipos de ataque
-            ViewData["Title"] = "Nueva Auditoría";
+            var proyectoId = HttpContext.Session.GetInt32(SESSION_PROYECTO);
+            if (proyectoId == null)
+                return RedirectToAction("Crear", "Proyecto");
+
+            var proyecto = await _dbService.GetProyectoByIdAsync(proyectoId.Value);
+            if (proyecto == null)
+                return RedirectToAction("Crear", "Proyecto");
+
+            var apiActiva = await _apiService.GetEstadoAsync();
+            ViewData["ApiEstado"] = apiActiva;
+            ViewData["TiposAtaque"] = TiposAtaque;
+            ViewData["Proyecto"] = proyecto;
+
             return View();
+        }
+
+        // ============================================================
+        // POST /Auditoria/Nueva — Lanza el ataque contra la IA
+        // ============================================================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Nueva(string tipoAtaque,
+                                                string? promptPersonalizado)
+        {
+            var proyectoId = HttpContext.Session.GetInt32(SESSION_PROYECTO);
+            if (proyectoId == null)
+                return RedirectToAction("Crear", "Proyecto");
+
+            var apiActiva = await _apiService.GetEstadoAsync();
+            ViewData["ApiEstado"] = apiActiva;
+            ViewData["TiposAtaque"] = TiposAtaque;
+
+            if (!apiActiva)
+            {
+                ViewData["Error"] = "La API de WhiteRabbitNeo no está disponible. Asegúrate de que Ollama y la FastAPI están activos.";
+                return View();
+            }
+
+            if (string.IsNullOrWhiteSpace(tipoAtaque))
+            {
+                ViewData["Error"] = "Debes seleccionar un tipo de ataque.";
+                return View();
+            }
+
+            _logger.LogInformation("Lanzando ataque {Tipo} en proyecto {Id}",
+                tipoAtaque, proyectoId.Value);
+
+            var resultado = await _apiService.LanzarAtaqueAsync(
+                tipoAtaque, promptPersonalizado, proyectoId.Value);
+
+            if (resultado == null)
+            {
+                ViewData["Error"] = "El ataque falló. Revisa que la API y Ollama están activos y vuelve a intentarlo.";
+                return View();
+            }
+
+            // Redirigir al detalle del ataque recién creado
+            return RedirectToAction("Detalle", new { id = resultado.Id });
         }
 
         // ============================================================
         // GET /Auditoria/Historial
-        // Tabla paginada con todos los ataques registrados.
-        // El cuerpo completo se desarrollará en el Paso 6.
         // ============================================================
-        [HttpGet]
-        public IActionResult Historial()
+        public async Task<IActionResult> Historial()
         {
-            // TODO (Paso 6): Cargar lista de ataques desde _dbService
-            ViewData["Title"] = "Historial de Ataques";
-            return View();
+            var proyectoId = HttpContext.Session.GetInt32(SESSION_PROYECTO) ?? 0;
+            var proyecto = await _dbService.GetProyectoByIdAsync(proyectoId);
+
+            var ataques = await _dbService.GetTodosAtaquesAsync(proyectoId);
+
+            ViewData["ApiEstado"] = await _apiService.GetEstadoAsync();
+            ViewData["Proyecto"] = proyecto;
+
+            return View(ataques);
         }
 
         // ============================================================
         // GET /Auditoria/Detalle/{id}
-        // Vista de detalle completo de un ataque por ID.
-        // El cuerpo completo se desarrollará en el Paso 7.
         // ============================================================
-        [HttpGet]
-        public IActionResult Detalle(int id)
+        public async Task<IActionResult> Detalle(int id)
         {
-            // TODO (Paso 7): Cargar detalle del ataque desde _dbService
-            ViewData["Title"] = $"Detalle del Ataque #{id}";
-            return View();
+            var detalle = await _dbService.GetAtaqueDetalleAsync(id);
+            if (detalle == null)
+            {
+                _logger.LogWarning("Ataque ID {Id} no encontrado", id);
+                return NotFound();
+            }
+
+            ViewData["ApiEstado"] = await _apiService.GetEstadoAsync();
+            return View(detalle);
         }
     }
 }

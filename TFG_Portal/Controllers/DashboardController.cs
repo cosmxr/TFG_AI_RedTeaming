@@ -16,6 +16,9 @@ namespace TFG_Portal.Controllers
         private readonly IApiService _apiService;
         private readonly ILogger<DashboardController> _logger;
 
+        // Clave de sesión para el proyecto activo
+        private const string SESSION_PROYECTO = "ProyectoActivoId";
+
         public DashboardController(
             IDatabaseService dbService,
             IApiService apiService,
@@ -27,9 +30,7 @@ namespace TFG_Portal.Controllers
         }
 
         // ============================================================
-        // GET / o GET /Dashboard
-        // Lanza TODAS las consultas en paralelo con Task.WhenAll
-        // para evitar esperas secuenciales innecesarias.
+        // GET /Dashboard o GET /Dashboard/Index
         // ============================================================
         public async Task<IActionResult> Index()
         {
@@ -37,34 +38,56 @@ namespace TFG_Portal.Controllers
 
             try
             {
-                // Lanzar todas las tareas a la vez sin await individual
-                var taskTotalAuditorias = _dbService.GetTotalAuditoriasAsync();
-                var taskTotalAtaques = _dbService.GetTotalAtaquesAsync();
-                var taskPorcentaje = _dbService.GetPorcentajeVulnerablesAsync();
-                var taskTiposDistintos = _dbService.GetTiposAtaqueDistintosAsync();
-                var taskAtaquesPorTipo = _dbService.GetAtaquesPorTipoAsync();
-                var taskAtaquesPorDia = _dbService.GetAtaquesPorDiaAsync();
-                var taskUltimasAuditorias = _dbService.GetUltimasAuditoriasAsync(5);
+                // --- Resolver proyecto activo ---
+                var todosProyectos = (await _dbService.GetAllProyectosAsync()).ToList();
+
+                // Si no hay proyectos, redirigir a crear el primero
+                if (!todosProyectos.Any())
+                    return RedirectToAction("Crear", "Proyecto");
+
+                // Leer proyecto activo de la sesión, si no existe usar el primero
+                var proyectoActivoId = HttpContext.Session.GetInt32(SESSION_PROYECTO)
+                    ?? todosProyectos.First().Id;
+
+                // Verificar que el proyecto de la sesión sigue existiendo
+                if (!todosProyectos.Any(p => p.Id == proyectoActivoId))
+                    proyectoActivoId = todosProyectos.First().Id;
+
+                // Guardar en sesión
+                HttpContext.Session.SetInt32(SESSION_PROYECTO, proyectoActivoId);
+
+                var proyectoActivo = todosProyectos.First(p => p.Id == proyectoActivoId);
+
+                // --- Lanzar todas las consultas en paralelo ---
+                var taskTotalAuditorias = _dbService.GetTotalAuditoriasAsync(proyectoActivoId);
+                var taskTotalAtaques = _dbService.GetTotalAtaquesAsync(proyectoActivoId);
+                var taskPorcentaje = _dbService.GetPorcentajeVulnerablesAsync(proyectoActivoId);
+                var taskTiposDistintos = _dbService.GetTiposAtaqueDistintosAsync(proyectoActivoId);
+                var taskAtaquesPorTipo = _dbService.GetAtaquesPorTipoAsync(proyectoActivoId);
+                var taskAtaquesPorDia = _dbService.GetAtaquesPorDiaAsync(proyectoActivoId);
+                var taskUltimasAuditorias = _dbService.GetUltimasAuditoriasAsync(proyectoActivoId, 5);
                 var taskApiActiva = _apiService.GetEstadoAsync();
 
-                // Esperar a que todas terminen simultáneamente
                 await Task.WhenAll(
                     taskTotalAuditorias, taskTotalAtaques, taskPorcentaje,
                     taskTiposDistintos, taskAtaquesPorTipo, taskAtaquesPorDia,
                     taskUltimasAuditorias, taskApiActiva
                 );
 
-                // Serializar datos de gráficos a JSON (se hace aquí, no en la vista)
+                // --- Serializar JSON para Chart.js ---
                 var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = null };
-                var ataquesPorTipoJson = JsonSerializer.Serialize(await taskAtaquesPorTipo, jsonOptions);
-                var ataquesPorDiaJson = JsonSerializer.Serialize(await taskAtaquesPorDia, jsonOptions);
-                var apiActiva = await taskApiActiva;
+                var ataquesPorTipoJson = JsonSerializer.Serialize(
+                    await taskAtaquesPorTipo, jsonOptions);
+                var ataquesPorDiaJson = JsonSerializer.Serialize(
+                    await taskAtaquesPorDia, jsonOptions);
 
-                // Inyectar estado de la API en ViewData para el _Layout
+                var apiActiva = await taskApiActiva;
                 ViewData["ApiEstado"] = apiActiva;
 
                 var viewModel = new DashboardViewModel
                 {
+                    ProyectoActivo = proyectoActivo,
+                    TodosProyectos = todosProyectos,
                     TotalAuditorias = await taskTotalAuditorias,
                     TotalAtaques = await taskTotalAtaques,
                     PorcentajeVulnerables = await taskPorcentaje,
@@ -76,14 +99,14 @@ namespace TFG_Portal.Controllers
                     FechaUltimaActualizacion = DateTime.Now
                 };
 
-                _logger.LogInformation("Dashboard cargado: {A} auditorías, {T} ataques",
-                    viewModel.TotalAuditorias, viewModel.TotalAtaques);
+                _logger.LogInformation(
+                    "Dashboard cargado: proyecto={P}, {A} auditorías, {T} ataques",
+                    proyectoActivo.Nombre, viewModel.TotalAuditorias, viewModel.TotalAtaques);
 
                 return View(viewModel);
             }
             catch (Exception ex)
             {
-                // Si algo falla, mostrar Dashboard vacío con mensaje de error
                 _logger.LogError(ex, "Error al cargar datos del Dashboard");
                 ViewData["Error"] = "No se pudieron cargar los datos. Verifica que SQL Server LocalDB está activo.";
                 ViewData["ApiEstado"] = false;
@@ -92,20 +115,29 @@ namespace TFG_Portal.Controllers
         }
 
         // ============================================================
-        // GET /Dashboard/ApiEstado — Endpoint JSON para polling navbar
-        // Llamado cada 30 segundos por el script de _Layout.cshtml
-        // Devuelve: { "activo": true|false }
+        // POST /Dashboard/CambiarProyecto — Cambia el proyecto activo
+        // Llamado desde el selector de la navbar/sidebar
+        // ============================================================
+        [HttpPost]
+        public IActionResult CambiarProyecto(int proyectoId)
+        {
+            HttpContext.Session.SetInt32(SESSION_PROYECTO, proyectoId);
+            _logger.LogInformation("Proyecto activo cambiado a ID: {Id}", proyectoId);
+            return RedirectToAction("Index");
+        }
+
+        // ============================================================
+        // GET /Dashboard/ApiEstado — Polling de estado de la API
         // ============================================================
         [HttpGet]
         public async Task<IActionResult> ApiEstado()
         {
-            _logger.LogDebug("Polling de estado de la API desde navbar");
             var activo = await _apiService.GetEstadoAsync();
             return Json(new { activo });
         }
 
         // ============================================================
-        // GET /Dashboard/Error — Página de error genérica
+        // GET /Dashboard/Error
         // ============================================================
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()

@@ -1,35 +1,40 @@
 // ============================================================
-// IApiService.cs — Contrato del servicio que llama a FastAPI
-// Los controladores C# dependen de esta interfaz, nunca
-// de la implementación concreta directamente.
+// IApiService.cs
 // ============================================================
+using System.Text.Json.Serialization;
+
 namespace TFG_Portal.Services
 {
-    /// <summary>
-    /// Define las operaciones disponibles contra la API FastAPI de Python.
-    /// </summary>
     public interface IApiService
     {
-        /// <summary>Comprueba si la API de Python está activa.</summary>
         Task<bool> GetEstadoAsync();
-
-        /// <summary>Lanza un ataque enviando el tipo al endpoint /atacar.</summary>
-        Task<AtaqueResultado?> LanzarAtaqueAsync(string tipoAtaque, string? promptPersonalizado);
-
-        /// <summary>Obtiene el historial completo de ataques desde la API.</summary>
+        Task<AtaqueResultado?> LanzarAtaqueAsync(string tipoAtaque,
+                                                  string? promptPersonalizado,
+                                                  int proyectoId);
         Task<IEnumerable<AtaqueResultado>> GetAuditoriasAsync();
-    }                                                             // ← cierre de IApiService
+    }
 
-    /// <summary>
-    /// DTO con el resultado devuelto por el endpoint POST /atacar
-    /// </summary>
     public class AtaqueResultado
     {
+        [JsonPropertyName("auditoria_id")]
         public int Id { get; set; }
+
+        [JsonPropertyName("ataque_id")]
+        public int AtaqueId { get; set; }
+
+        [JsonPropertyName("tipo_ataque")]
         public string TipoAtaque { get; set; } = string.Empty;
+
+        [JsonPropertyName("prompt_enviado")]
         public string PromptEnviado { get; set; } = string.Empty;
+
+        [JsonPropertyName("respuesta_ia")]
         public string RespuestaIa { get; set; } = string.Empty;
+
+        [JsonPropertyName("fue_vulnerable")]
         public bool FueVulnerable { get; set; }
+
+        [JsonPropertyName("fecha_creacion")]
         public DateTime FechaCreacion { get; set; }
-    }                                                             
-}                                                               
+    }
+}
