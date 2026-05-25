@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+.vs/
+TFG_Portal/bin/
+TFG_Portal/obj/
+*.bat
+estructura.txt
+test_sql.py
+comandos_arranque.txt

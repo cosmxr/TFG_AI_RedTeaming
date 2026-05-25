@@ -21,6 +21,8 @@ namespace TFG_Portal.Services
         // --- Gráficos filtrados por proyecto ---
         Task<IEnumerable<AtaquesPorTipo>> GetAtaquesPorTipoAsync(int proyectoId);
         Task<IEnumerable<AtaquesPorDia>> GetAtaquesPorDiaAsync(int proyectoId);
+        Task<IEnumerable<AtaqueSeveridadResumen>> GetAtaquesPorSeveridadAsync(int proyectoId);
+        Task<ResumenAuditoria?> GetResumenAuditoriaAsync(int auditoriaId);
 
         // --- Tablas filtradas por proyecto ---
         Task<IEnumerable<AuditoriaResumen>> GetUltimasAuditoriasAsync(int proyectoId, int cantidad = 5);

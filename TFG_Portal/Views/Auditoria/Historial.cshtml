@@ -1,6 +1,7 @@
 @* ============================================================
    Views/Auditoria/Historial.cshtml — Tabla completa de ataques
    AI Red Teaming Platform - TFG Ingeniería Informática
+   FASE 2 — Badges de severidad, tipo payload y nivel prompt
    ============================================================ *@
 
 @model IEnumerable<TFG_Portal.Models.AtaqueListItem>
@@ -29,8 +30,7 @@
     </div>
     <a asp-controller="Auditoria" asp-action="Nueva"
        class="btn-redteam-primary">
-        <i class="fa-solid fa-crosshairs"></i>
-        Nuevo Ataque
+        <i class="fa-solid fa-crosshairs"></i> Nuevo Ataque
     </a>
 </div>
 
@@ -39,7 +39,7 @@
     <div class="card-redteam">
         <div class="empty-state-redteam" style="min-height: 260px;">
             <i class="fa-solid fa-folder-open fa-3x mb-4" style="opacity:0.2;"></i>
-            <p style="font-size: 0.95rem; color: var(--color-text-muted);">No hay ataques registrados en este proyecto.</p>
+            <p style="font-size: 0.95rem; color: var(--color-text-muted);">No hay ataques registrados.</p>
             <a asp-controller="Auditoria" asp-action="Nueva" class="btn-redteam-primary mt-3">
                 <i class="fa-solid fa-crosshairs me-1"></i> Lanzar primer ataque
             </a>
@@ -50,13 +50,10 @@ else
 {
     @* ── Filtros ── *@
     <div class="d-flex gap-2 mb-3 flex-wrap">
-        <input type="text"
-               id="filtro-texto"
-               class="input-redteam"
-               placeholder="Buscar por tipo, prompt o modelo..."
-               style="max-width: 320px;" />
+        <input type="text" id="filtro-texto" class="input-redteam"
+               placeholder="Buscar..." style="max-width: 260px;" />
 
-        <select id="filtro-tipo" class="input-redteam" style="max-width: 160px;">
+        <select id="filtro-tipo" class="input-redteam" style="max-width: 140px;">
             <option value="">Todos los tipos</option>
             @foreach (var tipo in lista.Select(a => a.TipoAtaque).Distinct().OrderBy(t => t))
             {
@@ -64,10 +61,24 @@ else
             }
         </select>
 
-        <select id="filtro-vulnerable" class="input-redteam" style="max-width: 180px;">
-            <option value="">Todos los resultados</option>
-            <option value="1">Solo vulnerables</option>
-            <option value="0">Solo seguros</option>
+        <select id="filtro-vulnerable" class="input-redteam" style="max-width: 160px;">
+            <option value="">Todos</option>
+            <option value="1">Vulnerables</option>
+            <option value="0">Seguros</option>
+        </select>
+
+        <select id="filtro-severidad" class="input-redteam" style="max-width: 150px;">
+            <option value="">Severidad</option>
+            <option value="Alta">Alta</option>
+            <option value="Media">Media</option>
+            <option value="Baja">Baja</option>
+        </select>
+
+        <select id="filtro-payload" class="input-redteam" style="max-width: 160px;">
+            <option value="">Tipo payload</option>
+            <option value="funcional">Funcional</option>
+            <option value="generico">Genérico</option>
+            <option value="rechazo">Rechazo</option>
         </select>
 
         <span id="contador-resultados"
@@ -86,8 +97,10 @@ else
                         <th>ID</th>
                         <th>Tipo</th>
                         <th>Prompt</th>
-                        <th>Modelo IA</th>
                         <th>Resultado</th>
+                        <th>Severidad</th>
+                        <th>Payload</th>
+                        <th>Nivel</th>
                         <th>Fecha</th>
                         <th></th>
                     </tr>
@@ -98,22 +111,25 @@ else
                         <tr class="fila-ataque"
                             data-tipo="@ataque.TipoAtaque"
                             data-vulnerable="@(ataque.FueVulnerable ? "1" : "0")"
+                            data-severidad="@(ataque.Severidad ?? "")"
+                            data-payload="@(ataque.TipoPayload ?? "")"
                             data-texto="@ataque.TipoAtaque.ToLower() @ataque.PromptFragmento.ToLower() @ataque.ModeloIa.ToLower()">
+
                             <td class="col-meta">#@ataque.Id</td>
-                            <td><span class="badge-tipo-ataque">@ataque.TipoAtaque</span></td>
-                            <td style="max-width: 320px;">
-                                <span class="mono"
-                                      style="font-size: 0.75rem; color: var(--color-text-muted); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+
+                            <td>
+                                <span class="badge-tipo-ataque">@ataque.TipoAtaque</span>
+                                <span class="@ataque.CategoriaBadgeClass ms-1"
+                                      style="font-size:0.63rem;">@ataque.CategoriaEtiqueta</span>
+                            </td>
+
+                            <td style="max-width: 240px;">
+                                <span class="mono" style="font-size: 0.73rem; color: var(--color-text-muted);
+                                       display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                     @ataque.PromptFragmento
                                 </span>
                             </td>
-                            <td>
-                                <span class="mono" style="font-size: 0.72rem; color: var(--color-text-dim);">
-                                    @(ataque.ModeloIa.Length > 24
-                                        ? ataque.ModeloIa.Substring(0, 24) + "…"
-                                        : ataque.ModeloIa)
-                                </span>
-                            </td>
+
                             <td>
                                 @if (ataque.FueVulnerable)
                                 {
@@ -124,7 +140,42 @@ else
                                     <span class="badge-seguro">Seguro</span>
                                 }
                             </td>
+
+                            <td>
+                                @if (!string.IsNullOrEmpty(ataque.Severidad))
+                                {
+                                    <span class="@ataque.SeveridadBadgeClass">@ataque.Severidad</span>
+                                }
+                                else
+                                {
+                                    <span style="color: var(--color-text-dim);">—</span>
+                                }
+                            </td>
+
+                            <td>
+                                @if (!string.IsNullOrEmpty(ataque.TipoPayload))
+                                {
+                                    <span class="@ataque.TipoPayloadBadgeClass">@ataque.TipoPayload</span>
+                                }
+                                else
+                                {
+                                    <span style="color: var(--color-text-dim);">—</span>
+                                }
+                            </td>
+
+                            <td class="col-meta text-center">
+                                @if (ataque.NivelPrompt.HasValue)
+                                {
+                                    <span title="@ataque.NivelPromptEtiqueta">@ataque.NivelPrompt</span>
+                                }
+                                else
+                                {
+                                    <span style="color: var(--color-text-dim);">—</span>
+                                }
+                            </td>
+
                             <td class="col-meta">@ataque.FechaCreacion.ToString("dd/MM/yy HH:mm")</td>
+
                             <td>
                                 <a asp-controller="Auditoria" asp-action="Detalle"
                                    asp-route-id="@ataque.Id"
@@ -145,36 +196,41 @@ else
 <script>
     (function () {
         const filas = document.querySelectorAll('.fila-ataque');
-        const filtroTexto = document.getElementById('filtro-texto');
-        const filtroTipo = document.getElementById('filtro-tipo');
-        const filtroVulnerable = document.getElementById('filtro-vulnerable');
+        const filtros = {
+            texto: document.getElementById('filtro-texto'),
+            tipo: document.getElementById('filtro-tipo'),
+            vulnerable: document.getElementById('filtro-vulnerable'),
+            severidad: document.getElementById('filtro-severidad'),
+            payload: document.getElementById('filtro-payload')
+        };
         const contador = document.getElementById('contador-resultados');
 
         function filtrar() {
-            const texto = filtroTexto.value.toLowerCase();
-            const tipo = filtroTipo.value;
-            const vulnerable = filtroVulnerable.value;
+            const texto = (filtros.texto?.value || '').toLowerCase();
+            const tipo = filtros.tipo?.value || '';
+            const vuln = filtros.vulnerable?.value || '';
+            const sev = filtros.severidad?.value || '';
+            const pay = filtros.payload?.value || '';
             let visibles = 0;
 
             filas.forEach(fila => {
-                const matchTexto = !texto || fila.dataset.texto.includes(texto);
-                const matchTipo = !tipo || fila.dataset.tipo === tipo;
-                const matchVulnerable = !vulnerable || fila.dataset.vulnerable === vulnerable;
+                const ok =
+                    (!texto || fila.dataset.texto.includes(texto)) &&
+                    (!tipo || fila.dataset.tipo === tipo) &&
+                    (!vuln || fila.dataset.vulnerable === vuln) &&
+                    (!sev || fila.dataset.severidad === sev) &&
+                    (!pay || fila.dataset.payload === pay);
 
-                if (matchTexto && matchTipo && matchVulnerable) {
-                    fila.style.display = '';
-                    visibles++;
-                } else {
-                    fila.style.display = 'none';
-                }
+                fila.style.display = ok ? '' : 'none';
+                if (ok) visibles++;
             });
 
             if (contador) contador.textContent = visibles + ' resultados';
         }
 
-        if (filtroTexto) filtroTexto.addEventListener('input', filtrar);
-        if (filtroTipo) filtroTipo.addEventListener('change', filtrar);
-        if (filtroVulnerable) filtroVulnerable.addEventListener('change', filtrar);
+        Object.values(filtros).forEach(el => {
+            if (el) el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', filtrar);
+        });
     })();
 </script>
 }

@@ -1,0 +1,198 @@
+# ============================================================
+#  TFG Red Teaming AI — Docker Compose
+#
+#  MODOS DE ARRANQUE:
+#
+#  Modo A - Modelo auditado en Docker LOCAL:
+#    docker compose --profile local-target up --build
+#
+#  Modo B - Modelo auditado en TABLET Blackview:
+#    1. Edita TARGET_TABLET_IP en .env con la IP de tu tablet
+#    2. Lanza llama-server en la tablet (puerto 8081)
+#    3. docker compose --profile tablet-target up --build
+#
+#  Parar todo (sin borrar datos):
+#    docker compose --profile local-target down
+#    docker compose --profile tablet-target down
+#
+#  Parar y borrar todos los datos:
+#    docker compose --profile local-target down -v
+# ============================================================
+
+services:
+
+  # ── SQL SERVER 2022 EXPRESS ────────────────────────────────
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: tfg-sqlserver
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${SA_PASSWORD:-TFGRedTeam2024}
+      - MSSQL_PID=Express
+      - MSSQL_COLLATION=SQL_Latin1_General_CP1_CI_AS
+      - SA_PASSWORD=${SA_PASSWORD:-TFGRedTeam2024}
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+      - ./docker/init.sql:/init.sql:ro
+      - ./docker/init-db.sh:/init-db.sh:ro
+    entrypoint: >
+      /bin/bash -c "
+      /opt/mssql/bin/sqlservr &
+      sh /init-db.sh &&
+      wait"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/mssql-tools18/bin/sqlcmd",
+          "-S", "localhost",
+          "-U", "sa",
+          "-P", "${SA_PASSWORD:-TFGRedTeam2024}",
+          "-Q", "SELECT 1",
+          "-C"
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+    networks:
+      - tfg-network
+    restart: unless-stopped
+
+  # ── OLLAMA JUDGE (siempre en PC) ───────────────────────────
+  ollama-judge:
+    image: ollama/ollama:latest
+    container_name: tfg-ollama-judge
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=15m
+      - OLLAMA_NUM_CTX=4096
+    volumes:
+      - ollama-judge-data:/root/.ollama
+      - ./docker/preload-judge.sh:/preload.sh:ro
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && sh /preload.sh && wait"]
+    networks:
+      - tfg-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 7G
+        reservations:
+          memory: 5G
+
+  # ── OLLAMA TARGET LOCAL (solo Modo A) ──────────────────────
+  ollama-target-local:
+    image: ollama/ollama:latest
+    container_name: tfg-ollama-target-local
+    profiles:
+      - local-target
+    ports:
+      - "11435:11434"
+    environment:
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=1h
+      - OLLAMA_NUM_CTX=2048
+    volumes:
+      - ollama-target-data:/root/.ollama
+      - ./docker/preload-target.sh:/preload.sh:ro
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && sh /preload.sh && wait"]
+    networks:
+      - tfg-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 5G
+        reservations:
+          memory: 3G
+
+  # ── PROXY TABLET (solo Modo B) ─────────────────────────────
+  ollama-target-tablet:
+    image: alpine/socat:latest
+    container_name: tfg-ollama-target-tablet
+    profiles:
+      - tablet-target
+    ports:
+      - "11435:11435"
+    command: >
+      TCP-LISTEN:11435,fork,reuseaddr
+      TCP:${TARGET_TABLET_IP:-192.168.1.100}:8081
+    networks:
+      - tfg-network
+    restart: unless-stopped
+
+  # ── FASTAPI + PYRIT ────────────────────────────────────────
+  tfg-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: tfg-fastapi
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_SERVER=sqlserver
+      - DB_NAME=TFG_RedTeaming
+      - DB_USER=sa
+      - ${SA_PASSWORD:-TFGRedTeam2024}
+      - OLLAMA_JUDGE_URL=http://ollama-judge:11434
+      - JUDGE_MODEL=hf.co/bartowski/WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B-GGUF:latest
+      - OLLAMA_TARGET_URL=${OLLAMA_TARGET_URL:-http://ollama-target-local:11434}
+      - TARGET_MODEL_TYPE=${TARGET_MODEL_TYPE:-ollama}
+      - TARGET_MODEL=${TARGET_MODEL:-llama3.2:3b}
+      - PYTHONUNBUFFERED=1
+      - ENVIRONMENT=production
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      ollama-judge:
+        condition: service_started
+    networks:
+      - tfg-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/estado"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ── PORTAL ASP.NET CORE 8 MVC ──────────────────────────────
+  tfg-portal:
+    build:
+      context: ./TFG_Portal
+      dockerfile: Dockerfile
+    container_name: tfg-portal
+    ports:
+      - "8081:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ApiSettings__BaseUrl=http://tfg-api:8000
+      - ApiSettings__TimeoutSeconds=300
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=TFG_RedTeaming;User Id=sa;Password=${SA_PASSWORD:-TFGRedTeam2024};TrustServerCertificate=True;MultipleActiveResultSets=true
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      tfg-api:
+        condition: service_healthy
+    networks:
+      - tfg-network
+    restart: unless-stopped
+
+networks:
+  tfg-network:
+    driver: bridge
+    name: tfg-redteaming-network
+
+volumes:
+  sqlserver-data:
+    name: tfg-sqlserver-data
+  ollama-judge-data:
+    name: tfg-ollama-judge-data
+  ollama-target-data:
+    name: tfg-ollama-target-data

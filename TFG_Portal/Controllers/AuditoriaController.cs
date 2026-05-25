@@ -4,8 +4,8 @@
 // ============================================================
 
 using Microsoft.AspNetCore.Mvc;
+using TFG_Portal.Models;
 using TFG_Portal.Services;
-using TFG_Portal.ViewModels;
 
 namespace TFG_Portal.Controllers
 {
@@ -15,10 +15,6 @@ namespace TFG_Portal.Controllers
         private readonly IDatabaseService _dbService;
         private readonly ILogger<AuditoriaController> _logger;
         private const string SESSION_PROYECTO = "ProyectoActivoId";
-
-        // Tipos de ataque disponibles
-        private static readonly List<string> TiposAtaque =
-            new() { "XSS", "SQLi", "LFI", "CSRF", "SSRF", "RCE" };
 
         public AuditoriaController(IApiService apiService,
                                     IDatabaseService dbService,
@@ -43,9 +39,11 @@ namespace TFG_Portal.Controllers
             if (proyecto == null)
                 return RedirectToAction("Crear", "Proyecto");
 
-            var apiActiva = await _apiService.GetEstadoAsync();
-            ViewData["ApiEstado"] = apiActiva;
-            ViewData["TiposAtaque"] = TiposAtaque;
+            // Obtener tipos desde la API (con fallback automático si falla)
+            var tipos = await _apiService.ObtenerTiposAtaqueAsync();
+
+            ViewData["ApiEstado"] = await _apiService.GetEstadoAsync();
+            ViewData["TiposAtaque"] = tipos;           // TiposAtaqueResponse completo
             ViewData["Proyecto"] = proyecto;
 
             return View();
@@ -63,13 +61,16 @@ namespace TFG_Portal.Controllers
             if (proyectoId == null)
                 return RedirectToAction("Crear", "Proyecto");
 
+            var tipos = await _apiService.ObtenerTiposAtaqueAsync();
             var apiActiva = await _apiService.GetEstadoAsync();
+
             ViewData["ApiEstado"] = apiActiva;
-            ViewData["TiposAtaque"] = TiposAtaque;
+            ViewData["TiposAtaque"] = tipos;
 
             if (!apiActiva)
             {
-                ViewData["Error"] = "La API de WhiteRabbitNeo no está disponible. Asegúrate de que Ollama y la FastAPI están activos.";
+                ViewData["Error"] = "La API no está disponible. " +
+                    "Asegúrate de que Ollama y la FastAPI están activos.";
                 return View();
             }
 
@@ -79,20 +80,30 @@ namespace TFG_Portal.Controllers
                 return View();
             }
 
-            _logger.LogInformation("Lanzando ataque {Tipo} en proyecto {Id}",
-                tipoAtaque, proyectoId.Value);
+            // Validar que el tipo existe (clasico + ai_redteam)
+            var todosLosTipos = tipos.Todos;
+            if (!todosLosTipos.Contains(tipoAtaque.ToUpper()))
+            {
+                ViewData["Error"] = $"Tipo de ataque no reconocido: {tipoAtaque}";
+                return View();
+            }
+
+            _logger.LogInformation("Lanzando ataque {Tipo} [{Cat}] en proyecto {Id}",
+                tipoAtaque,
+                CategoriasAtaque.ObtenerCategoria(tipoAtaque),
+                proyectoId.Value);
 
             var resultado = await _apiService.LanzarAtaqueAsync(
                 tipoAtaque, promptPersonalizado, proyectoId.Value);
 
             if (resultado == null)
             {
-                ViewData["Error"] = "El ataque falló. Revisa que la API y Ollama están activos y vuelve a intentarlo.";
+                ViewData["Error"] = "El ataque falló. " +
+                    "Revisa que la API y Ollama están activos e inténtalo de nuevo.";
                 return View();
             }
 
-            // Redirigir al detalle del ataque recién creado
-            return RedirectToAction("Detalle", new { id = resultado.Id });
+            return RedirectToAction("Detalle", new { id = resultado.AtaqueId });
         }
 
         // ============================================================
@@ -102,7 +113,6 @@ namespace TFG_Portal.Controllers
         {
             var proyectoId = HttpContext.Session.GetInt32(SESSION_PROYECTO) ?? 0;
             var proyecto = await _dbService.GetProyectoByIdAsync(proyectoId);
-
             var ataques = await _dbService.GetTodosAtaquesAsync(proyectoId);
 
             ViewData["ApiEstado"] = await _apiService.GetEstadoAsync();

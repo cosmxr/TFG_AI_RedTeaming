@@ -1,0 +1,11 @@
+# Modo A — modelo auditado en Docker local
+docker compose --profile local-target up --build
+
+# Modo B — modelo auditado en la tablet
+docker compose --env-file .env.tablet up --build
+
+# Parar todo
+docker compose down
+
+# Parar y borrar volúmenes (BBDD incluida)
+docker compose down -v
