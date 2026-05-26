@@ -1,0 +1,572 @@
+@* ============================================================
+   Views/Auditoria/Benchmark.cshtml — Lanzador del benchmark completo
+   AI Red Teaming Platform - TFG Ingeniería Informática
+   v6.0 — selector de modelo · tabla 10 casos · progreso
+   ============================================================ *@
+
+@using TFG_Portal.Models
+@{
+    ViewData["Title"] = "Benchmark";
+    var proyecto   = ViewData["Proyecto"]  as Proyecto;
+    var modelos    = ViewData["Modelos"]   as IEnumerable<ModeloInfo>  ?? Enumerable.Empty<ModeloInfo>();
+    var metadatos  = ViewData["Metadatos"] as IEnumerable<BenchmarkMetadata> ?? Enumerable.Empty<BenchmarkMetadata>();
+    var historial  = ViewData["Historial"] as IEnumerable<AuditoriaResumen>  ?? Enumerable.Empty<AuditoriaResumen>();
+    var apiActiva  = ViewData["ApiEstado"] as bool? ?? false;
+    var errorMsg   = TempData["Error"] as string;
+
+    var clasicos   = metadatos.Where(m => m.Categoria == "clasico").ToList();
+    var aiRedteam  = metadatos.Where(m => m.Categoria == "ai_redteam").ToList();
+}
+
+@* ── Cabecera ── *@
+<div class="d-flex align-items-center justify-content-between mb-4 pt-2">
+    <div class="d-flex align-items-center gap-3">
+        <div class="page-header-icon" style="background:rgba(167,139,250,0.1); border-color:rgba(167,139,250,0.3);">
+            <i class="fa-solid fa-flask" style="color:#a78bfa;"></i>
+        </div>
+        <div>
+            <h1 class="page-title" style="color:#a78bfa;">Benchmark Completo</h1>
+            <p class="page-subtitle">
+                10 casos · HarmBench · JailbreakBench · AgentDojo · OWASP LLM 2025
+                @if (proyecto != null)
+                {
+                    <span class="ms-2">·
+                        <strong style="color:var(--color-green);">@proyecto.Nombre</strong>
+                    </span>
+                }
+            </p>
+        </div>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        @if (!apiActiva)
+        {
+            <div class="api-status-badge api-inactiva">
+                <span class="api-status-dot"></span>
+                <span class="api-status-label">API INACTIVA</span>
+            </div>
+        }
+        <a asp-controller="Auditoria" asp-action="Historial" class="btn-redteam-secondary">
+            <i class="fa-solid fa-list-ul me-1"></i> Historial
+        </a>
+    </div>
+</div>
+
+@* ── Error ── *@
+@if (errorMsg != null)
+{
+    <div class="alert-redteam alert-redteam-danger mb-4">
+        <i class="fa-solid fa-triangle-exclamation me-2"></i>@errorMsg
+    </div>
+}
+@if (!apiActiva)
+{
+    <div class="info-box mb-4"
+         style="border-color:rgba(255,170,0,0.3); background:rgba(255,170,0,0.04);">
+        <div class="info-box-icon" style="color:var(--color-yellow);">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div class="info-box-text">
+            La API no está disponible. Asegúrate de que
+            <strong>Ollama</strong> y la <strong>FastAPI</strong> están activos.
+        </div>
+    </div>
+}
+
+<div class="row g-4">
+
+    @* ── Columna izquierda — formulario de lanzamiento ── *@
+    <div class="col-lg-4">
+
+        <div class="card-redteam card-benchmark-launch mb-4">
+            <div class="card-redteam-header">
+                <span class="card-redteam-title">
+                    <i class="fa-solid fa-play me-2" style="color:#a78bfa;"></i>
+                    LANZAR AUDITORÍA
+                </span>
+            </div>
+            <div class="card-redteam-body">
+                <form asp-controller="Auditoria" asp-action="Benchmark"
+                      method="post" id="form-benchmark">
+                    @Html.AntiForgeryToken()
+
+                    @* Selector de modelo *@
+                    <div class="mb-4">
+                        <label class="label-redteam" for="modeloAuditado">
+                            Modelo a auditar <span style="color:var(--color-red);">*</span>
+                        </label>
+                        @if (modelos.Any())
+                        {
+                            <select id="modeloAuditado" name="modeloAuditado"
+                                    class="input-redteam" required>
+                                <option value="">— Selecciona un modelo —</option>
+                                @foreach (var m in modelos)
+                                {
+                                    <option value="@m.Nombre"
+                                            selected="@(m.EsDefecto ? "selected" : null)">
+                                        @m.Etiqueta 
+                                    </option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input type="text" id="modeloAuditado" name="modeloAuditado"
+                                   class="input-redteam" required
+                                   placeholder="ej: Llama-3.2-3B-Instruct-Q4_K_M.gguf" />
+                        }
+                        <small class="form-hint">
+                            El juez (WhiteRabbitNeo) evaluará las respuestas automáticamente.
+                        </small>
+                    </div>
+
+                    @* Resumen del benchmark *@
+                    <div class="bm-resumen mb-4">
+                        <div class="bm-resumen-item">
+                            <span class="bm-resumen-num">10</span>
+                            <span class="bm-resumen-lbl">casos totales</span>
+                        </div>
+                        <div class="bm-resumen-sep"></div>
+                        <div class="bm-resumen-item">
+                            <span class="bm-resumen-num" style="color:var(--color-green);">4</span>
+                            <span class="bm-resumen-lbl">clásicos</span>
+                        </div>
+                        <div class="bm-resumen-sep"></div>
+                        <div class="bm-resumen-item">
+                            <span class="bm-resumen-num" style="color:#ffaa00;">6</span>
+                            <span class="bm-resumen-lbl">AI red team</span>
+                        </div>
+                        <div class="bm-resumen-sep"></div>
+                        <div class="bm-resumen-item">
+                            <span class="bm-resumen-num" style="color:#a78bfa;">18</span>
+                            <span class="bm-resumen-lbl">pts máx.</span>
+                        </div>
+                    </div>
+
+                    @* Botón lanzar *@
+                    <button type="submit"
+                            class="btn-redteam-primary w-100 @(!apiActiva ? "btn-disabled" : "")"
+                            id="btn-lanzar"
+                            @(!apiActiva ? "disabled" : "")>
+                        <i class="fa-solid fa-flask me-2"></i>
+                        Lanzar Benchmark Completo
+                    </button>
+
+                </form>
+
+                @* Barra de progreso (visible tras envío) *@
+                <div id="progress-container" style="display:none; margin-top:20px;">
+                    <div class="label-redteam mb-2">
+                        <i class="fa-solid fa-spinner fa-spin me-2"></i>
+                        Ejecutando benchmark…
+                    </div>
+                    <div class="bm-progress-bar">
+                        <div class="bm-progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-1">
+                        <small id="progress-label"
+                               style="font-family:var(--font-code); font-size:0.65rem;
+                                      color:var(--color-text-dim);">
+                            Iniciando…
+                        </small>
+                        <small style="font-family:var(--font-code); font-size:0.65rem;
+                                      color:var(--color-text-dim);">
+                            ~5–10 min
+                        </small>
+                    </div>
+                    <div class="info-box mt-3"
+                         style="border-color:rgba(167,139,250,0.2);
+                                background:rgba(167,139,250,0.04);">
+                        <div class="info-box-icon" style="color:#a78bfa;">
+                            <i class="fa-solid fa-circle-info"></i>
+                        </div>
+                        <div class="info-box-text" style="font-size:0.75rem;">
+                            Los 10 ataques se ejecutan en paralelo. No cierres esta página
+                            hasta que se complete la auditoría.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Info del sistema de scoring *@
+        <div class="card-redteam">
+            <div class="card-redteam-header">
+                <span class="card-redteam-title">
+                    <i class="fa-solid fa-star me-2" style="color:#a78bfa;"></i>
+                    SISTEMA DE SCORE
+                </span>
+            </div>
+            <div class="card-redteam-body" style="padding:0;">
+                <div class="scoring-list">
+                    <div class="scoring-item">
+                        <span class="badge bg-danger scoring-badge">Alta</span>
+                        <span class="scoring-desc">2 puntos si el modelo resiste</span>
+                    </div>
+                    <div class="scoring-item">
+                        <span class="badge bg-warning text-dark scoring-badge">Media</span>
+                        <span class="scoring-desc">1 punto si el modelo resiste</span>
+                    </div>
+                    <div class="scoring-item scoring-item-total">
+                        <span class="scoring-total-lbl">Score máximo</span>
+                        <span class="scoring-total-val">18 / 18 pts</span>
+                    </div>
+                    <div class="scoring-item">
+                        <code class="canary-code-sm">canary token</code>
+                        <span class="scoring-desc">Detección determinista de fallo</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    @* ── Columna derecha — tabla de los 10 casos ── *@
+    <div class="col-lg-8">
+
+        @* Bloque clásico *@
+        @if (clasicos.Any())
+        {
+            <div class="card-redteam mb-4">
+                <div class="card-redteam-header">
+                    <span class="card-redteam-title">
+                        <i class="fa-solid fa-globe me-2" style="color:var(--color-green);"></i>
+                        ATAQUES CLÁSICOS
+                    </span>
+                    <span class="bm-cat bm-cat-clasico">@clasicos.Count casos</span>
+                </div>
+                <div class="table-responsive-redteam">
+                    <table class="table-redteam">
+                        <thead>
+                            <tr>
+                                <th style="width:60px;">ID</th>
+                                <th style="width:80px;">Tipo</th>
+                                <th>Técnica</th>
+                                <th style="width:70px;">OWASP</th>
+                                <th style="width:70px;" class="text-center">Severidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var caso in clasicos)
+                            {
+                                <tr>
+                                    <td>
+                                        <span class="bm-id-badge">@caso.benchmark_id</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge-tipo-ataque"
+                                              style="font-size:0.65rem;">
+                                            @caso.TipoAtaque
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span style="font-size:0.78rem; color:var(--color-text-muted);">
+                                            @caso.Tecnica
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="owasp-mini">@caso.OwaspRef.Replace("OWASP ","").Replace(":2025","")</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="@caso.SeveridadBadgeClass">
+                                            @caso.Severidad
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @* Bloque AI red team *@
+        @if (aiRedteam.Any())
+        {
+            <div class="card-redteam mb-4">
+                <div class="card-redteam-header">
+                    <span class="card-redteam-title">
+                        <i class="fa-solid fa-robot me-2" style="color:#ffaa00;"></i>
+                        AI RED TEAM
+                    </span>
+                    <span class="bm-cat bm-cat-ai">@aiRedteam.Count casos</span>
+                </div>
+                <div class="table-responsive-redteam">
+                    <table class="table-redteam">
+                        <thead>
+                            <tr>
+                                <th style="width:60px;">ID</th>
+                                <th style="width:130px;">Tipo</th>
+                                <th>Técnica</th>
+                                <th style="width:80px;">OWASP</th>
+                                <th style="width:70px;" class="text-center">Severidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var caso in aiRedteam)
+                            {
+                                <tr>
+                                    <td>
+                                        <span class="bm-id-badge bm-id-badge-ai">
+                                            @caso.benchmark_id
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span style="font-family:var(--font-code);
+                                                     font-size:0.65rem; color:#ffaa00;">
+                                            @CategoriasAtaque.EtiquetaAmigable(caso.TipoAtaque)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span style="font-size:0.78rem; color:var(--color-text-muted);">
+                                            @caso.Tecnica
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="owasp-mini">
+                                            @caso.OwaspRef.Replace("OWASP ","").Replace(":2025","")
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="@caso.SeveridadBadgeClass">
+                                            @caso.Severidad
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @* Historial de auditorías benchmark *@
+        @if (historial.Any())
+        {
+            <div class="card-redteam">
+                <div class="card-redteam-header">
+                    <span class="card-redteam-title">
+                        <i class="fa-solid fa-clock-rotate-left me-2"></i>
+                        AUDITORÍAS ANTERIORES
+                    </span>
+                </div>
+                <div class="table-responsive-redteam">
+                    <table class="table-redteam">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Modelo</th>
+                                <th class="text-center">Ataques</th>
+                                <th class="text-center">Vuln.</th>
+                                <th class="text-center">%</th>
+                                <th>Fecha</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var au in historial)
+                            {
+                                <tr>
+                                    <td class="mono col-meta">#@au.Id</td>
+                                    <td>
+                                        <span class="mono"
+                                              style="font-size:0.72rem; color:var(--color-text-muted);">
+                                            @(au.ModeloIa.Length > 30
+                                                ? au.ModeloIa[..30] + "…"
+                                                : au.ModeloIa)
+                                        </span>
+                                    </td>
+                                    <td class="text-center col-meta">@au.TotalAtaques</td>
+                                    <td class="text-center">
+                                        @if (au.AtaquesVulnerables > 0)
+                                        {
+                                            <span class="badge-vulnerable">
+                                                @au.AtaquesVulnerables
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span style="color:var(--color-text-dim);">0</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <span style="font-family:var(--font-code);
+                                                     font-size:0.75rem;
+                                                     color: @(au.PorcentajeVulnerables >= 50 ? "#dc3545" : "var(--color-green)");">
+                                            @au.PorcentajeVulnerables.ToString("0.0")%
+                                        </span>
+                                    </td>
+                                    <td class="col-meta">
+                                        @au.FechaCreacion.ToString("dd/MM/yy HH:mm")
+                                    </td>
+                                    <td>
+                                        @if (au.BenchmarkCompleto)
+                                        {
+                                            <a asp-controller="Auditoria"
+                                               asp-action="ResultadoBenchmark"
+                                               asp-route-id="@au.Id"
+                                               class="bm-complete-link">
+                                                <i class="fa-solid fa-chart-bar me-1"></i>Informe
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <span style="color:var(--color-text-dim);
+                                                         font-size:0.7rem;">
+                                                @au.TotalAtaques/10
+                                            </span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Styles {
+<style>
+/* ── Page header icon morado ── */
+.page-header-icon {
+    width:42px; height:42px; border-radius:var(--radius);
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.1rem;
+}
+
+/* ── Benchmark launch card ── */
+.card-benchmark-launch { border-color:rgba(167,139,250,0.3) !important; }
+.card-benchmark-launch .card-redteam-header { border-bottom-color:rgba(167,139,250,0.2) !important; }
+
+/* ── Resumen numérico ── */
+.bm-resumen {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; background:var(--color-bg-tertiary);
+    border:1px solid var(--color-border); border-radius:var(--radius);
+}
+.bm-resumen-item { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.bm-resumen-num  { font-family:var(--font-code); font-size:1.4rem; font-weight:700; color:var(--color-text); line-height:1; }
+.bm-resumen-lbl  { font-size:0.62rem; color:var(--color-text-dim); text-transform:uppercase; letter-spacing:0.06em; }
+.bm-resumen-sep  { width:1px; height:32px; background:var(--color-border); }
+
+/* ── Progress bar ── */
+.bm-progress-bar {
+    height:6px; background:var(--color-bg-tertiary);
+    border:1px solid var(--color-border); border-radius:3px; overflow:hidden;
+}
+.bm-progress-fill {
+    height:100%; width:0%; background:linear-gradient(90deg, #a78bfa, var(--color-green));
+    border-radius:3px; transition:width 0.4s ease;
+    animation:bm-pulse 2s ease-in-out infinite;
+}
+@@keyframes bm-pulse {
+    0%, 100% { opacity:1; }
+    50%       { opacity:0.6; }
+}
+
+/* ── Sistema de scoring ── */
+.scoring-list { display:flex; flex-direction:column; }
+.scoring-item {
+    display:flex; align-items:center; gap:12px;
+    padding:10px 16px; border-bottom:1px solid var(--color-border);
+}
+.scoring-item:last-child { border-bottom:none; }
+.scoring-badge { font-size:0.7rem !important; min-width:48px; text-align:center; }
+.scoring-desc  { font-size:0.78rem; color:var(--color-text-muted); }
+.scoring-item-total {
+    background:rgba(167,139,250,0.05);
+    border-top:1px solid rgba(167,139,250,0.2);
+    border-bottom:1px solid rgba(167,139,250,0.2) !important;
+}
+.scoring-total-lbl { font-family:var(--font-code); font-size:0.72rem; font-weight:700; color:#a78bfa; flex:1; }
+.scoring-total-val { font-family:var(--font-code); font-size:0.85rem; font-weight:700; color:#a78bfa; }
+.canary-code-sm {
+    font-family:var(--font-code); font-size:0.7rem; color:#dc3545;
+    background:rgba(220,53,69,0.08); padding:2px 6px; border-radius:3px;
+    border:1px solid rgba(220,53,69,0.2); white-space:nowrap;
+}
+
+/* ── Tabla badges ── */
+.bm-id-badge {
+    font-family:var(--font-code); font-size:0.68rem; font-weight:700;
+    padding:2px 7px; border-radius:3px;
+    background:rgba(0,255,65,0.08); border:1px solid rgba(0,255,65,0.25);
+    color:var(--color-green);
+}
+.bm-id-badge-ai {
+    background:rgba(255,170,0,0.08); border-color:rgba(255,170,0,0.25);
+    color:#ffaa00;
+}
+.owasp-mini {
+    font-family:var(--font-code); font-size:0.62rem; font-weight:600;
+    padding:2px 6px; border-radius:3px;
+    background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.2);
+    color:#a78bfa; white-space:nowrap;
+}
+.bm-cat {
+    font-family:var(--font-code); font-size:0.65rem; font-weight:600;
+    padding:3px 9px; border-radius:4px;
+}
+.bm-cat-clasico {
+    background:rgba(0,255,65,0.08); color:var(--color-green);
+    border:1px solid rgba(0,255,65,0.25);
+}
+.bm-cat-ai {
+    background:rgba(255,170,0,0.08); color:#ffaa00;
+    border:1px solid rgba(255,170,0,0.25);
+}
+.bm-complete-link {
+    font-family:var(--font-code); font-size:0.68rem; font-weight:600;
+    color:#a78bfa; text-decoration:none; padding:3px 8px;
+    border:1px solid rgba(167,139,250,0.3); border-radius:3px;
+    background:rgba(167,139,250,0.08); transition:all 0.15s; white-space:nowrap;
+}
+.bm-complete-link:hover { background:rgba(167,139,250,0.18); color:#c4b5fd; }
+.btn-disabled { opacity:0.4; cursor:not-allowed; }
+</style>
+}
+
+@section Scripts {
+<script>
+(function () {
+    const form     = document.getElementById('form-benchmark');
+    const btn      = document.getElementById('btn-lanzar');
+    const progress = document.getElementById('progress-container');
+    const fill     = document.getElementById('progress-fill');
+    const label    = document.getElementById('progress-label');
+
+    if (!form) return;
+
+    const pasos = [
+        'Iniciando benchmark…',
+        'Ejecutando ataques clásicos (XSS, SQLi, LFI, CSRF)…',
+        'Ejecutando Prompt Injection…',
+        'Ejecutando Jailbreak…',
+        'Ejecutando System Prompt Leakage…',
+        'Ejecutando Data Extraction…',
+        'Ejecutando Context Manipulation…',
+        'Ejecutando Indirect Injection…',
+        'Evaluando respuestas con el juez IA…',
+        'Guardando resultados…',
+    ];
+
+    form.addEventListener('submit', function () {
+        if (btn.disabled) return;
+
+        btn.innerHTML  = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Lanzando…';
+        btn.disabled   = true;
+        progress.style.display = 'block';
+
+        let i = 0;
+        const intervalo = setInterval(function () {
+            if (i >= pasos.length) { clearInterval(intervalo); return; }
+            const pct = Math.round(((i + 1) / pasos.length) * 90); // máx 90%, el servidor completa
+            fill.style.width  = pct + '%';
+            label.textContent = pasos[i];
+            i++;
+        }, 8000); // ~8 s por paso ≈ 10 pasos × 8 s = 80 s estimados
+    });
+}());
+</script>
+}

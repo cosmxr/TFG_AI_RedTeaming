@@ -1,6 +1,7 @@
 // ============================================================
 // ApiService.cs — Servicio que se comunica con la API FastAPI
 // AI Red Teaming Platform - TFG Ingeniería Informática
+// v6.0 — benchmark plano, sin nivel_prompt
 // ============================================================
 
 using System.Text;
@@ -16,9 +17,10 @@ namespace TFG_Portal.Services
         private readonly ILogger<ApiService> _logger;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        // Timeout para operaciones largas (ataques con 3 niveles de escalada)
-        // 3 niveles × ~3 min/nivel + margen = 12 min
-        private static readonly TimeSpan TimeoutAtaque = TimeSpan.FromMinutes(12);
+        // Benchmark completo: 10 ataques × ~1 min/ataque + margen
+        private static readonly TimeSpan TimeoutBatch = TimeSpan.FromMinutes(35);
+        // Ataque individual: 1 ejecución + evaluación del juez
+        private static readonly TimeSpan TimeoutAtaque = TimeSpan.FromMinutes(5);
 
         // Fallback si la API no está disponible
         private static readonly TiposAtaqueResponse _fallback = new()
@@ -49,9 +51,10 @@ namespace TFG_Portal.Services
             };
         }
 
-        // --------------------------------------------------------
+        // ────────────────────────────────────────────────────────
         // GET /estado
-        // --------------------------------------------------------
+        // ────────────────────────────────────────────────────────
+
         public async Task<bool> GetEstadoAsync()
         {
             try
@@ -59,10 +62,9 @@ namespace TFG_Portal.Services
                 var client = _httpClientFactory.CreateClient("FastAPI");
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
                 var response = await client.GetAsync("/estado", cts.Token);
-                var estaActiva = response.IsSuccessStatusCode;
-                _logger.LogInformation("Estado API FastAPI: {Estado}",
-                    estaActiva ? "ACTIVA" : "INACTIVA");
-                return estaActiva;
+                var activa = response.IsSuccessStatusCode;
+                _logger.LogInformation("Estado API FastAPI: {Estado}", activa ? "ACTIVA" : "INACTIVA");
+                return activa;
             }
             catch (TaskCanceledException ex)
             {
@@ -76,9 +78,10 @@ namespace TFG_Portal.Services
             }
         }
 
-        // --------------------------------------------------------
+        // ────────────────────────────────────────────────────────
         // GET /tipos_ataque
-        // --------------------------------------------------------
+        // ────────────────────────────────────────────────────────
+
         public async Task<TiposAtaqueResponse> ObtenerTiposAtaqueAsync()
         {
             try
@@ -97,14 +100,14 @@ namespace TFG_Portal.Services
                 var json = await response.Content.ReadAsStringAsync();
                 var resultado = JsonSerializer.Deserialize<TiposAtaqueResponse>(json, _jsonOptions);
 
-                if (resultado == null || !resultado.Todos.Any())
+                if (resultado is null || !resultado.Todos.Any())
                 {
                     _logger.LogWarning("Respuesta vacía de /tipos_ataque, usando fallback");
                     return _fallback;
                 }
 
                 _logger.LogInformation(
-                    "Tipos de ataque obtenidos: {Clasico} clásicos, {Ai} AI red team",
+                    "Tipos obtenidos: {C} clásicos, {A} AI red team",
                     resultado.Clasico.Count, resultado.AiRedteam.Count);
 
                 return resultado;
@@ -121,17 +124,46 @@ namespace TFG_Portal.Services
             }
         }
 
-        // --------------------------------------------------------
-        // POST /atacar
-        // FIX 1: timeout largo (12 min) para aguantar 3 niveles de escalada
-        // FIX 2: se acepta y envía modelo_auditado
-        // FIX 3: log de timeout corregido (eliminado "CSRF" hardcodeado)
-        // --------------------------------------------------------
+        // ────────────────────────────────────────────────────────
+        // GET /benchmark
+        // Metadatos de los 10 casos (sin prompts)
+        // ────────────────────────────────────────────────────────
+
+        public async Task<IEnumerable<BenchmarkMetadata>> ObtenerBenchmarkAsync()
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient("FastAPI");
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                var response = await client.GetAsync("/benchmark", cts.Token);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Error {Code} al obtener metadatos benchmark",
+                        (int)response.StatusCode);
+                    return Enumerable.Empty<BenchmarkMetadata>();
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<List<BenchmarkMetadata>>(json, _jsonOptions)
+                       ?? new List<BenchmarkMetadata>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener metadatos benchmark");
+                return Enumerable.Empty<BenchmarkMetadata>();
+            }
+        }
+
+        // ────────────────────────────────────────────────────────
+        // POST /atacar — ataque individual
+        // ────────────────────────────────────────────────────────
+
         public async Task<AtaqueResultado?> LanzarAtaqueAsync(
             string tipoAtaque,
             string? promptPersonalizado,
             int proyectoId,
-            string? modeloAuditado = null)   // FIX 2: nuevo parámetro opcional
+            string? modeloAuditado = null)
         {
             try
             {
@@ -141,41 +173,37 @@ namespace TFG_Portal.Services
 
                 var client = _httpClientFactory.CreateClient("FastAPI");
 
-                var requestBody = new Dictionary<string, object?>
+                var body = new Dictionary<string, object?>
                 {
                     ["tipo_ataque"] = tipoAtaque,
                     ["prompt_personalizado"] = string.IsNullOrWhiteSpace(promptPersonalizado)
-                                                ? null
-                                                : (object?)promptPersonalizado,
+                                                ? null : (object?)promptPersonalizado,
                     ["proyecto_id"] = proyectoId,
                     ["modelo_auditado"] = string.IsNullOrWhiteSpace(modeloAuditado)
-                                                ? null
-                                                : (object?)modeloAuditado   // FIX 2
+                                                ? null : (object?)modeloAuditado,
                 };
 
-                var jsonBody = JsonSerializer.Serialize(requestBody, _jsonOptions);
-                var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+                var content = new StringContent(
+                    JsonSerializer.Serialize(body, _jsonOptions),
+                    Encoding.UTF8, "application/json");
 
-                // FIX 1: timeout explícito para operaciones largas
                 using var cts = new CancellationTokenSource(TimeoutAtaque);
                 var response = await client.PostAsync("/atacar", content, cts.Token);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    var errorBody = await response.Content.ReadAsStringAsync();
+                    var err = await response.Content.ReadAsStringAsync();
                     _logger.LogError("Error {Code} al llamar /atacar: {Body}",
-                        (int)response.StatusCode, errorBody);
+                        (int)response.StatusCode, err);
                     return null;
                 }
 
-                var responseJson = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<AtaqueResultado>(responseJson, _jsonOptions);
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<AtaqueResultado>(json, _jsonOptions);
             }
             catch (TaskCanceledException)
             {
-                // FIX 3: eliminado "CSRF" hardcodeado
-                _logger.LogError(
-                    "Timeout ({Min} min) al lanzar ataque {Tipo}",
+                _logger.LogError("Timeout ({Min} min) al lanzar ataque {Tipo}",
                     TimeoutAtaque.TotalMinutes, tipoAtaque);
                 return null;
             }
@@ -186,17 +214,79 @@ namespace TFG_Portal.Services
             }
         }
 
-        // --------------------------------------------------------
-        // GET /auditorias
-        // FIX 4: añadido timeout de 30s
-        // --------------------------------------------------------
+        // ────────────────────────────────────────────────────────
+        // POST /auditar/batch — benchmark completo o subconjunto
+        // ────────────────────────────────────────────────────────
+
+        public async Task<ResultadoBatch?> LanzarBatchAsync(
+            int proyectoId,
+            string? modeloAuditado = null,
+            List<string>? tiposAtaque = null)   // null → los 10 del benchmark
+        {
+            try
+            {
+                _logger.LogInformation(
+                    "Lanzando batch en proyecto {Id} (modelo: {Modelo}, tipos: {Tipos})",
+                    proyectoId, modeloAuditado ?? "defecto",
+                    tiposAtaque is null ? "todos" : string.Join(",", tiposAtaque));
+
+                var client = _httpClientFactory.CreateClient("FastAPI");
+
+                var body = new Dictionary<string, object?>
+                {
+                    ["proyecto_id"] = proyectoId,
+                    ["tipos_ataque"] = tiposAtaque ?? new List<string>(),
+                    ["modelo_auditado"] = string.IsNullOrWhiteSpace(modeloAuditado)
+                                          ? null : (object?)modeloAuditado,
+                };
+
+                var content = new StringContent(
+                    JsonSerializer.Serialize(body, _jsonOptions),
+                    Encoding.UTF8, "application/json");
+
+                using var cts = new CancellationTokenSource(TimeoutBatch);
+                var response = await client.PostAsync("/auditar/batch", content, cts.Token);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var err = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Error {Code} en /auditar/batch: {Body}",
+                        (int)response.StatusCode, err);
+                    return null;
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                var resultado = JsonSerializer.Deserialize<ResultadoBatch>(json, _jsonOptions);
+
+                _logger.LogInformation(
+                    "Batch completado: {V}/{T} vulnerables ({Tasa}%)",
+                    resultado?.TotalVulnerables, resultado?.TotalAtaques,
+                    resultado?.TasaVulnerabilidad);
+
+                return resultado;
+            }
+            catch (TaskCanceledException)
+            {
+                _logger.LogError("Timeout ({Min} min) en batch benchmark",
+                    TimeoutBatch.TotalMinutes);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error inesperado en batch benchmark");
+                return null;
+            }
+        }
+
+        // ────────────────────────────────────────────────────────
+        // GET /auditorias — historial completo
+        // ────────────────────────────────────────────────────────
+
         public async Task<IEnumerable<AtaqueResultado>> GetAuditoriasAsync()
         {
             try
             {
                 var client = _httpClientFactory.CreateClient("FastAPI");
-
-                // FIX 4: timeout razonable para una consulta de historial
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                 var response = await client.GetAsync("/auditorias", cts.Token);
 
@@ -210,7 +300,7 @@ namespace TFG_Portal.Services
                 var json = await response.Content.ReadAsStringAsync();
                 var resultado = JsonSerializer.Deserialize<List<AtaqueResultado>>(json, _jsonOptions);
 
-                _logger.LogInformation("Se obtuvieron {Count} ataques del historial",
+                _logger.LogInformation("Historial: {Count} ataques obtenidos",
                     resultado?.Count ?? 0);
 
                 return resultado ?? new List<AtaqueResultado>();
@@ -224,6 +314,36 @@ namespace TFG_Portal.Services
             {
                 _logger.LogError(ex, "Error al obtener historial de auditorías");
                 return Enumerable.Empty<AtaqueResultado>();
+            }
+        }
+
+        // ────────────────────────────────────────────────────────
+        // GET /modelos — lista de modelos disponibles en Ollama
+        // ────────────────────────────────────────────────────────
+
+        public async Task<IEnumerable<ModeloInfo>> ObtenerModelosAsync()
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient("FastAPI");
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                var response = await client.GetAsync("/modelos", cts.Token);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Error {Code} al obtener modelos",
+                        (int)response.StatusCode);
+                    return Enumerable.Empty<ModeloInfo>();
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<List<ModeloInfo>>(json, _jsonOptions)
+                       ?? new List<ModeloInfo>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener modelos disponibles");
+                return Enumerable.Empty<ModeloInfo>();
             }
         }
     }

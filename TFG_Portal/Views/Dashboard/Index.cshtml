@@ -1,6 +1,7 @@
 @* ============================================================
    Views/Dashboard/Index.cshtml — Vista principal del Dashboard
    AI Red Teaming Platform - TFG Ingeniería Informática
+   v6.0 — benchmark plano, canary KPI, acceso rápido al benchmark
    ============================================================ *@
 
 @model TFG_Portal.ViewModels.DashboardViewModel
@@ -8,72 +9,7 @@
     ViewData["Title"] = "Dashboard";
 }
 
-@section Styles {
-<style>
-    .page-title {
-        font-family: var(--font-code);
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--color-green);
-        text-transform: uppercase;
-        letter-spacing: 0.15em;
-        margin: 0;
-    }
-    .page-subtitle {
-        font-size: 0.78rem;
-        color: var(--color-text-muted);
-        margin: 2px 0 0 0;
-    }
-    .empty-state-redteam {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 40px 20px;
-        color: var(--color-text-dim);
-        font-size: 0.85rem;
-        text-align: center;
-        min-height: 160px;
-    }
-    .proyecto-banner {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 12px 16px;
-        background: rgba(0, 255, 65, 0.04);
-        border: 1px solid rgba(0, 255, 65, 0.12);
-        border-radius: var(--radius);
-        margin-bottom: 20px;
-    }
-    .proyecto-banner-icon {
-        color: var(--color-green);
-        font-size: 1rem;
-        opacity: 0.7;
-        flex-shrink: 0;
-    }
-    .proyecto-banner-nombre {
-        font-family: var(--font-code);
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--color-green);
-    }
-    .proyecto-banner-meta {
-        font-family: var(--font-ui);
-        font-size: 0.75rem;
-        color: var(--color-text-dim);
-        margin-top: 2px;
-    }
-    .proyecto-banner-actions {
-        margin-left: auto;
-        display: flex;
-        gap: 8px;
-    }
-</style>
-}
-
-@* ============================================================
-   CABECERA DE PÁGINA
-   ============================================================ *@
+@* ── Cabecera ── *@
 <div class="d-flex align-items-center justify-content-between mb-3 pt-2">
     <div>
         <h1 class="page-title">
@@ -90,10 +26,10 @@
     </div>
 </div>
 
-@* Banner del proyecto activo *@
+@* ── Banner proyecto activo ── *@
 @if (Model.ProyectoActivo != null)
 {
-    <div class="proyecto-banner">
+    <div class="proyecto-banner mb-4">
         <div class="proyecto-banner-icon">
             <i class="fa-solid fa-folder-open"></i>
         </div>
@@ -108,10 +44,13 @@
             </div>
         </div>
         <div class="proyecto-banner-actions">
+            <a asp-controller="Auditoria" asp-action="Benchmark"
+               class="btn-redteam-primary" style="padding:5px 14px; font-size:0.78rem;">
+                <i class="fa-solid fa-flask me-1"></i> Benchmark
+            </a>
             <a asp-controller="Auditoria" asp-action="Nueva"
-               class="btn-redteam-primary" style="padding: 5px 14px; font-size: 0.78rem;">
-                <i class="fa-solid fa-crosshairs"></i>
-                Nueva Auditoría
+               class="btn-redteam-secondary" style="padding:5px 14px; font-size:0.78rem;">
+                <i class="fa-solid fa-crosshairs me-1"></i> Ataque
             </a>
         </div>
     </div>
@@ -120,50 +59,86 @@
 @if (ViewData["Error"] != null)
 {
     <div class="alert-redteam alert-redteam-danger mb-4">
-        <i class="fa-solid fa-triangle-exclamation me-2"></i>
-        @ViewData["Error"]
+        <i class="fa-solid fa-triangle-exclamation me-2"></i>@ViewData["Error"]
     </div>
 }
 
-@* ============================================================
-   SECCIÓN 1 — KPIs
-   ============================================================ *@
+@* ── KPIs ── *@
 <div class="kpi-grid mb-4">
-
     <div class="card-kpi fade-in-up">
         <i class="fa-solid fa-folder-open kpi-icon"></i>
         <div class="kpi-value">@Model.TotalAuditorias</div>
-        <div class="kpi-label">Auditorías totales</div>
+        <div class="kpi-label">Auditorías</div>
     </div>
-
-    <div class="card-kpi fade-in-up" style="animation-delay: 0.05s;">
+    <div class="card-kpi fade-in-up" style="animation-delay:0.05s;">
         <i class="fa-solid fa-bolt kpi-icon"></i>
         <div class="kpi-value">@Model.TotalAtaques</div>
-        <div class="kpi-label">Ataques lanzados</div>
+        <div class="kpi-label">Ataques</div>
     </div>
-
-    <div class="card-kpi kpi-danger fade-in-up" style="animation-delay: 0.1s;">
+    <div class="card-kpi kpi-danger fade-in-up" style="animation-delay:0.1s;">
         <i class="fa-solid fa-triangle-exclamation kpi-icon"></i>
         <div class="kpi-value">
             @Model.PorcentajeVulnerables.ToString("0.0")<span style="font-size:1.2rem">%</span>
         </div>
-        <div class="kpi-label">% Vulnerable</div>
+        <div class="kpi-label">Vulnerable</div>
     </div>
-
-    <div class="card-kpi kpi-warning fade-in-up" style="animation-delay: 0.15s;">
+    <div class="card-kpi kpi-canary fade-in-up" style="animation-delay:0.15s;">
+        <i class="fa-solid fa-radiation kpi-icon"></i>
+        <div class="kpi-value">@Model.TotalCanaryDetectado</div>
+        <div class="kpi-label">Canary Hit</div>
+    </div>
+    <div class="card-kpi kpi-warning fade-in-up" style="animation-delay:0.2s;">
         <i class="fa-solid fa-crosshairs kpi-icon"></i>
         <div class="kpi-value">@Model.TiposAtaqueDistintos</div>
-        <div class="kpi-label">Tipos de ataque</div>
+        <div class="kpi-label">Tipos</div>
     </div>
-
 </div>
 
-@* ============================================================
-   SECCIÓN 2 — GRÁFICOS
-   ============================================================ *@
+@* ── Benchmark Quick Launch + Última auditoría benchmark ── *@
 <div class="row g-3 mb-4">
+    <div class="col-lg-5">
+        <div class="card-redteam h-100 benchmark-launch-card">
+            <div class="card-redteam-header">
+                <span class="card-redteam-title">
+                    <i class="fa-solid fa-flask me-2" style="color:#a78bfa;"></i>
+                    BENCHMARK COMPLETO
+                </span>
+                <span class="owasp-mini-badge">10 ataques</span>
+            </div>
+            <div class="card-redteam-body d-flex flex-column gap-3">
+                <p style="font-size:0.82rem; color:var(--color-text-muted); margin:0; line-height:1.6;">
+                    Audita el modelo seleccionado con los
+                    <strong style="color:var(--color-text);">10 casos del benchmark TFG</strong>
+                    en paralelo. Genera automáticamente el score de robustez
+                    (0–18 pts) y detecta vulnerabilidades por canary token.
+                </p>
+                <div class="benchmark-cats">
+                    <span class="cat-pill cat-clasico">
+                        <i class="fa-solid fa-globe me-1"></i>4 Clásico
+                    </span>
+                    <span class="cat-pill cat-ai">
+                        <i class="fa-solid fa-robot me-1"></i>6 AI Red Team
+                    </span>
+                    <span class="cat-pill cat-owasp">
+                        <i class="fa-solid fa-shield-halved me-1"></i>OWASP LLM
+                    </span>
+                </div>
+                <div class="mt-auto d-flex gap-2">
+                    <a asp-controller="Auditoria" asp-action="Benchmark"
+                       class="btn-redteam-primary flex-fill">
+                        <i class="fa-solid fa-play me-1"></i> Lanzar Benchmark
+                    </a>
+                    <a asp-controller="Metricas" asp-action="Comparativa"
+                       class="btn-redteam-secondary">
+                        <i class="fa-solid fa-chart-bar"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <div class="col-xl-7">
+    @* ── Última auditoría con score benchmark ── *@
+    <div class="col-lg-7">
         <div class="card-redteam h-100">
             <div class="card-redteam-header">
                 <span class="card-redteam-title">
@@ -173,21 +148,24 @@
             </div>
             @if (Model.AtaquesPorDiaJson == "[]")
             {
-                <div class="empty-state-redteam">
+                <div class="empty-state-redteam" style="min-height:200px;">
                     <i class="fa-solid fa-chart-line fa-2x mb-3"></i>
-                    <p>Sin actividad registrada en los últimos 7 días</p>
+                    <p>Sin actividad en los últimos 7 días</p>
                 </div>
             }
             else
             {
-                <div style="position: relative; height: 280px; padding: 12px 4px 4px 4px;">
+                <div style="position:relative; height:210px; padding:12px 4px 4px;">
                     <canvas id="chartLinea"></canvas>
                 </div>
             }
         </div>
     </div>
+</div>
 
-    <div class="col-xl-5">
+@* ── Gráficos por tipo y por severidad ── *@
+<div class="row g-3 mb-4">
+    <div class="col-xl-6">
         <div class="card-redteam h-100">
             <div class="card-redteam-header">
                 <span class="card-redteam-title">
@@ -197,25 +175,47 @@
             </div>
             @if (Model.AtaquesPorTipoJson == "[]")
             {
-                <div class="empty-state-redteam">
+                <div class="empty-state-redteam" style="min-height:200px;">
                     <i class="fa-solid fa-chart-bar fa-2x mb-3"></i>
                     <p>No hay ataques registrados</p>
                 </div>
             }
             else
             {
-                <div style="position: relative; height: 280px; padding: 12px 4px 4px 4px;">
+                <div style="position:relative; height:220px; padding:12px 4px 4px;">
                     <canvas id="chartBarras"></canvas>
                 </div>
             }
         </div>
     </div>
 
+    <div class="col-xl-6">
+        <div class="card-redteam h-100">
+            <div class="card-redteam-header">
+                <span class="card-redteam-title">
+                    <i class="fa-solid fa-chart-pie me-2"></i>
+                    Distribución de severidad
+                </span>
+            </div>
+            @if (Model.AtaquesPorSeveridadJson == "[]")
+            {
+                <div class="empty-state-redteam" style="min-height:200px;">
+                    <i class="fa-solid fa-chart-pie fa-2x mb-3"></i>
+                    <p>Sin vulnerabilidades registradas</p>
+                </div>
+            }
+            else
+            {
+                <div style="position:relative; height:180px; padding:12px 4px 4px;">
+                    <canvas id="chartDonut"></canvas>
+                </div>
+                <div id="legend-donut" class="donut-legend"></div>
+            }
+        </div>
+    </div>
 </div>
 
-@* ============================================================
-   SECCIÓN 3 — TABLA ÚLTIMAS AUDITORÍAS
-   ============================================================ *@
+@* ── Últimas auditorías ── *@
 <div class="card-redteam fade-in-up">
     <div class="card-redteam-header">
         <span class="card-redteam-title">
@@ -223,7 +223,7 @@
             Últimas Auditorías
         </span>
         <a asp-controller="Auditoria" asp-action="Historial"
-           class="btn-redteam-secondary" style="padding: 4px 12px; font-size: 0.78rem;">
+           class="btn-redteam-secondary" style="padding:4px 12px; font-size:0.78rem;">
             Ver todo <i class="fa-solid fa-arrow-right ms-1"></i>
         </a>
     </div>
@@ -233,8 +233,8 @@
         <div class="empty-state-redteam">
             <i class="fa-solid fa-folder-open fa-2x mb-3"></i>
             <p>No hay auditorías en este proyecto todavía.</p>
-            <a asp-controller="Auditoria" asp-action="Nueva" class="btn-redteam-primary mt-2">
-                <i class="fa-solid fa-crosshairs me-1"></i> Lanzar primer ataque
+            <a asp-controller="Auditoria" asp-action="Benchmark" class="btn-redteam-primary mt-2">
+                <i class="fa-solid fa-flask me-1"></i> Lanzar benchmark completo
             </a>
         </div>
     }
@@ -247,40 +247,55 @@
                         <th>ID</th>
                         <th>Modelo IA</th>
                         <th>Descripción</th>
-                        <th>Ataques</th>
-                        <th>Vulnerables</th>
-                        <th>Estado</th>
+                        <th class="text-center">Ataques</th>
+                        <th class="text-center">Vulnerables</th>
+                        <th class="text-center">Benchmark</th>
                         <th>Fecha</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var auditoria in Model.UltimasAuditorias)
+                    @foreach (var au in Model.UltimasAuditorias)
                     {
                         <tr onclick="window.location='/Auditoria/Historial'" style="cursor:pointer;">
-                            <td class="col-meta">#@auditoria.Id</td>
+                            <td class="col-meta mono">#@au.Id</td>
                             <td>
-                                <span class="mono" style="font-size:0.75rem; color: var(--color-text-muted);">
-                                    @(auditoria.ModeloIa.Length > 28
-                                        ? auditoria.ModeloIa.Substring(0, 28) + "…"
-                                        : auditoria.ModeloIa)
+                                <span class="mono"
+                                      style="font-size:0.73rem; color:var(--color-text-muted);">
+                                    @(au.ModeloIa.Length > 28
+                                        ? au.ModeloIa[..28] + "…"
+                                        : au.ModeloIa)
                                 </span>
                             </td>
-                            <td style="color: var(--color-text-muted); font-size: 0.83rem;">
-                                @auditoria.Descripcion
+                            <td style="color:var(--color-text-muted); font-size:0.82rem;">
+                                @au.Descripcion
                             </td>
-                            <td class="col-meta text-center">@auditoria.TotalAtaques</td>
+                            <td class="text-center col-meta">@au.TotalAtaques</td>
                             <td class="text-center">
-                                @if (auditoria.AtaquesVulnerables > 0)
+                                @if (au.AtaquesVulnerables > 0)
+                                { <span class="badge-vulnerable">@au.AtaquesVulnerables</span> }
+                                else
+                                { <span style="color:var(--color-text-dim);">—</span> }
+                            </td>
+                            <td class="text-center">
+                                @if (au.BenchmarkCompleto)
                                 {
-                                    <span class="badge-vulnerable">@auditoria.AtaquesVulnerables</span>
+                                    <a asp-controller="Auditoria"
+                                       asp-action="ResultadoBenchmark"
+                                       asp-route-id="@au.Id"
+                                       class="benchmark-complete-link"
+                                       onclick="event.stopPropagation();"
+                                       title="Ver informe benchmark">
+                                        <i class="fa-solid fa-flask me-1"></i>Completo
+                                    </a>
                                 }
                                 else
                                 {
-                                    <span style="color: var(--color-text-dim);">—</span>
+                                    <span style="color:var(--color-text-dim); font-size:0.72rem;">
+                                        @au.TotalAtaques / 10
+                                    </span>
                                 }
                             </td>
-                            <td><span class="badge-auditoria-activa">@auditoria.EstadoBadge</span></td>
-                            <td class="col-meta">@auditoria.FechaCreacion.ToString("dd/MM/yy HH:mm")</td>
+                            <td class="col-meta">@au.FechaCreacion.ToString("dd/MM/yy HH:mm")</td>
                         </tr>
                     }
                 </tbody>
@@ -289,10 +304,219 @@
     }
 </div>
 
-<script id="data-ataques-por-tipo" type="application/json">@Html.Raw(Model.AtaquesPorTipoJson)</script>
-<script id="data-ataques-por-dia"  type="application/json">@Html.Raw(Model.AtaquesPorDiaJson)</script>
+@* ── Data para Chart.js ── *@
+<script id="data-ataques-por-tipo"     type="application/json">@Html.Raw(Model.AtaquesPorTipoJson)</script>
+<script id="data-ataques-por-dia"      type="application/json">@Html.Raw(Model.AtaquesPorDiaJson)</script>
+<script id="data-ataques-por-severidad" type="application/json">@Html.Raw(Model.AtaquesPorSeveridadJson)</script>
+
+@section Styles {
+<style>
+/* ── Proyecto banner ── */
+.proyecto-banner {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 16px;
+    background: rgba(0,255,65,0.04);
+    border: 1px solid rgba(0,255,65,0.12);
+    border-radius: var(--radius);
+}
+.proyecto-banner-icon { color: var(--color-green); font-size: 1rem; opacity: 0.7; flex-shrink: 0; }
+.proyecto-banner-nombre { font-family: var(--font-code); font-size: 0.85rem; font-weight: 600; color: var(--color-green); }
+.proyecto-banner-meta  { font-size: 0.75rem; color: var(--color-text-dim); margin-top: 2px; }
+.proyecto-banner-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* ── KPI extra: canary ── */
+.kpi-canary { border-color: rgba(220,53,69,0.25) !important; }
+.kpi-canary .kpi-icon, .kpi-canary .kpi-value { color: #ff6b6b !important; }
+
+/* ── Benchmark launch card ── */
+.benchmark-launch-card {
+    border-color: rgba(167,139,250,0.3) !important;
+}
+.benchmark-launch-card .card-redteam-header {
+    border-bottom-color: rgba(167,139,250,0.2) !important;
+}
+.owasp-mini-badge {
+    font-family: var(--font-code); font-size: 0.62rem; font-weight: 700;
+    padding: 2px 8px; border-radius: 3px;
+    background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.3);
+    color: #a78bfa; letter-spacing: 0.05em;
+}
+.benchmark-cats { display: flex; gap: 6px; flex-wrap: wrap; }
+.cat-pill {
+    font-family: var(--font-code); font-size: 0.65rem; font-weight: 600;
+    padding: 3px 9px; border-radius: 4px; white-space: nowrap;
+}
+.cat-clasico { background: rgba(0,255,65,0.08);  color: var(--color-green); border: 1px solid rgba(0,255,65,0.25); }
+.cat-ai      { background: rgba(255,170,0,0.08);  color: #ffaa00;           border: 1px solid rgba(255,170,0,0.25); }
+.cat-owasp   { background: rgba(167,139,250,0.08); color: #a78bfa;          border: 1px solid rgba(167,139,250,0.25); }
+
+/* ── Benchmark complete link ── */
+.benchmark-complete-link {
+    font-family: var(--font-code); font-size: 0.68rem; font-weight: 600;
+    color: #a78bfa; text-decoration: none; padding: 3px 8px;
+    border: 1px solid rgba(167,139,250,0.3); border-radius: 3px;
+    background: rgba(167,139,250,0.08); transition: all 0.15s;
+}
+.benchmark-complete-link:hover {
+    background: rgba(167,139,250,0.18); color: #c4b5fd;
+}
+
+/* ── Donut legend ── */
+.donut-legend {
+    display: flex; justify-content: center; gap: 16px;
+    flex-wrap: wrap; padding: 8px 16px 12px;
+}
+.donut-legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.72rem; color: var(--color-text-muted);
+}
+.donut-legend-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+</style>
+}
 
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-    <script src="~/js/dashboard.js" asp-append-version="true"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+    const isDark  = true;
+    const gridCol = 'rgba(255,255,255,0.06)';
+    const textCol = '#666d76';
+    const green   = '#00ff41';
+    const red     = '#dc3545';
+    const yellow  = '#ffaa00';
+    const purple  = '#a78bfa';
+    const blue    = '#4488ff';
+
+    Chart.defaults.color = textCol;
+    Chart.defaults.font.family = "'JetBrains Mono', monospace";
+    Chart.defaults.font.size   = 11;
+
+    // ── Gráfico de línea (actividad 7 días) ──────────────────
+    const dataDia = JSON.parse(
+        document.getElementById('data-ataques-por-dia')?.textContent || '[]');
+
+    if (dataDia.length > 0 && document.getElementById('chartLinea')) {
+        new Chart(document.getElementById('chartLinea'), {
+            type: 'line',
+            data: {
+                labels: dataDia.map(d => d.Fecha),
+                datasets: [{
+                    label: 'Ataques',
+                    data: dataDia.map(d => d.Total),
+                    borderColor: green,
+                    backgroundColor: 'rgba(0,255,65,0.08)',
+                    borderWidth: 2,
+                    pointBackgroundColor: green,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    tension: 0.4,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: gridCol }, ticks: { color: textCol } },
+                    y: {
+                        grid: { color: gridCol }, ticks: { color: textCol, stepSize: 1 },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // ── Gráfico de barras (ataques por tipo) ─────────────────
+    const dataTipo = JSON.parse(
+        document.getElementById('data-ataques-por-tipo')?.textContent || '[]');
+
+    if (dataTipo.length > 0 && document.getElementById('chartBarras')) {
+        const aiTypes = ['PROMPT_INJECTION','JAILBREAK','SYSTEM_PROMPT_LEAKAGE',
+                         'DATA_EXTRACTION','CONTEXT_MANIPULATION','INDIRECT_INJECTION'];
+        const colores = dataTipo.map(d =>
+            aiTypes.includes(d.TipoAtaque) ? yellow : green);
+
+        new Chart(document.getElementById('chartBarras'), {
+            type: 'bar',
+            data: {
+                labels: dataTipo.map(d => {
+                    const m = {
+                        PROMPT_INJECTION:'PI',JAILBREAK:'JB',SYSTEM_PROMPT_LEAKAGE:'SPL',
+                        DATA_EXTRACTION:'DE',CONTEXT_MANIPULATION:'CM',INDIRECT_INJECTION:'II',
+                        XSS:'XSS',SQLI:'SQLi',LFI:'LFI',CSRF:'CSRF'
+                    };
+                    return m[d.TipoAtaque] || d.TipoAtaque;
+                }),
+                datasets: [{
+                    label: 'Ataques',
+                    data: dataTipo.map(d => d.Total),
+                    backgroundColor: colores.map(c => c + '33'),
+                    borderColor: colores,
+                    borderWidth: 1,
+                    borderRadius: 3,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: gridCol }, ticks: { color: textCol } },
+                    y: { grid: { color: gridCol }, ticks: { color: textCol, stepSize: 1 }, beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    // ── Gráfico donut (severidad) ─────────────────────────────
+    const dataSev = JSON.parse(
+        document.getElementById('data-ataques-por-severidad')?.textContent || '[]');
+
+    if (dataSev.length > 0 && document.getElementById('chartDonut')) {
+        const coloresSev = { Alta: red, Media: yellow, Baja: blue };
+        const colors = dataSev.map(d => coloresSev[d.Severidad] || '#888');
+
+        new Chart(document.getElementById('chartDonut'), {
+            type: 'doughnut',
+            data: {
+                labels: dataSev.map(d => d.Severidad),
+                datasets: [{
+                    data: dataSev.map(d => d.Total),
+                    backgroundColor: colors.map(c => c + '33'),
+                    borderColor: colors,
+                    borderWidth: 2,
+                    hoverOffset: 6,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ` ${ctx.label}: ${ctx.parsed}`
+                        }
+                    }
+                }
+            }
+        });
+
+        // Leyenda manual
+        const legend = document.getElementById('legend-donut');
+        if (legend) {
+            dataSev.forEach((d, i) => {
+                const item = document.createElement('div');
+                item.className = 'donut-legend-item';
+                item.innerHTML =
+                    `<span class="donut-legend-dot" style="background:${colors[i]};"></span>
+                     <span>${d.Severidad}: <strong>${d.Total}</strong></span>`;
+                legend.appendChild(item);
+            });
+        }
+    }
+}());
+</script>
 }

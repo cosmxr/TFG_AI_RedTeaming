@@ -1,6 +1,7 @@
 @* ============================================================
    _Layout.cshtml — Layout base con sidebar
    AI Red Teaming Platform - TFG Ingeniería Informática
+   v6.0 — añade Benchmark y Métricas al sidebar
    ============================================================ *@
 
 @using TFG_Portal.ViewModels
@@ -13,11 +14,14 @@
     var apiClase  = apiActiva ? "api-activa" : "api-inactiva";
     var apiTexto  = apiActiva ? "ACTIVA" : "INACTIVA";
 
-    // Proyecto activo desde sesión
     var proyectoActivoId = Context.Session.GetInt32("ProyectoActivoId") ?? 0;
     var todosProyectos   = (await DbService.GetAllProyectosAsync()).ToList();
     var proyectoActivo   = todosProyectos.FirstOrDefault(p => p.Id == proyectoActivoId)
                            ?? todosProyectos.FirstOrDefault();
+
+    // Helper para detectar enlace activo
+    bool IsActive(string ctrl, string? action = null) =>
+        currentController == ctrl && (action == null || currentAction == action);
 }
 
 <!DOCTYPE html>
@@ -52,6 +56,7 @@
 
 <body>
 
+    @* ── Navbar ── *@
     <nav class="navbar navbar-expand-lg navbar-redteam fixed-top">
         <div class="container-fluid px-4">
 
@@ -69,8 +74,10 @@
             @if (todosProyectos.Any())
             {
                 <div class="proyecto-selector d-none d-lg-flex align-items-center gap-2 ms-4">
-                    <i class="fa-solid fa-folder-open" style="color: var(--color-green); opacity: 0.7; font-size: 0.8rem;"></i>
-                    <form asp-controller="Proyecto" asp-action="Seleccionar" method="post" class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-folder-open"
+                       style="color:var(--color-green); opacity:0.7; font-size:0.8rem;"></i>
+                    <form asp-controller="Proyecto" asp-action="Seleccionar"
+                          method="post" class="d-flex align-items-center gap-2">
                         @Html.AntiForgeryToken()
                         <select name="proyectoId"
                                 class="input-redteam input-redteam-sm proyecto-select"
@@ -78,14 +85,10 @@
                                 title="Proyecto activo">
                             @foreach (var p in todosProyectos)
                             {
-                                if (p.Id == proyectoActivo?.Id)
-                                {
-                                    <option value="@p.Id" selected>@p.Nombre</option>
-                                }
-                                else
-                                {
-                                    <option value="@p.Id">@p.Nombre</option>
-                                }
+                                <option value="@p.Id"
+                                        selected="@(p.Id == proyectoActivo?.Id ? "selected" : null)">
+                                    @p.Nombre
+                                </option>
                             }
                         </select>
                     </form>
@@ -93,12 +96,10 @@
             }
 
             <button class="navbar-toggler ms-auto" type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#navbarMain"
-                    aria-controls="navbarMain"
-                    aria-expanded="false"
+                    data-bs-toggle="collapse" data-bs-target="#navbarMain"
+                    aria-controls="navbarMain" aria-expanded="false"
                     aria-label="Abrir menú">
-                <i class="fa-solid fa-bars" style="color: #00ff41;"></i>
+                <i class="fa-solid fa-bars" style="color:#00ff41;"></i>
             </button>
 
             <div class="collapse navbar-collapse" id="navbarMain">
@@ -118,6 +119,7 @@
 
     <div class="app-wrapper">
 
+        @* ── Sidebar ── *@
         <aside class="sidebar" id="sidebar">
 
             <div class="sidebar-project-info">
@@ -139,22 +141,30 @@
 
             <hr class="sidebar-divider" />
 
+            @* ── Navegación principal ── *@
             <nav class="sidebar-nav">
                 <div class="sidebar-nav-label">NAVEGACIÓN</div>
 
-                <a class="sidebar-nav-link @(currentController == "Dashboard" ? "active" : "")"
+                <a class="sidebar-nav-link @(IsActive("Dashboard") ? "active" : "")"
                    asp-controller="Dashboard" asp-action="Index">
                     <i class="fa-solid fa-gauge"></i>
                     <span>Dashboard</span>
                 </a>
 
-                <a class="sidebar-nav-link @(currentController == "Auditoria" && currentAction == "Nueva" ? "active" : "")"
-                   asp-controller="Auditoria" asp-action="Nueva">
-                    <i class="fa-solid fa-crosshairs"></i>
-                    <span>Nueva Auditoría</span>
+                <a class="sidebar-nav-link @(IsActive("Auditoria","Benchmark") ? "active" : "")"
+                   asp-controller="Auditoria" asp-action="Benchmark">
+                    <i class="fa-solid fa-flask" style="color: @(IsActive("Auditoria","Benchmark") ? "inherit" : "#a78bfa");"></i>
+                    <span>Benchmark</span>
+                    <span class="sidebar-nav-badge sidebar-nav-badge-purple">10</span>
                 </a>
 
-                <a class="sidebar-nav-link @(currentController == "Auditoria" && currentAction == "Historial" ? "active" : "")"
+                <a class="sidebar-nav-link @(IsActive("Auditoria","Nueva") ? "active" : "")"
+                   asp-controller="Auditoria" asp-action="Nueva">
+                    <i class="fa-solid fa-crosshairs"></i>
+                    <span>Nuevo Ataque</span>
+                </a>
+
+                <a class="sidebar-nav-link @(IsActive("Auditoria","Historial") ? "active" : "")"
                    asp-controller="Auditoria" asp-action="Historial">
                     <i class="fa-solid fa-list-ul"></i>
                     <span>Historial</span>
@@ -163,13 +173,45 @@
 
             <hr class="sidebar-divider" />
 
+            @* ── Métricas ── *@
+            <nav class="sidebar-nav">
+                <div class="sidebar-nav-label">MÉTRICAS</div>
+
+                <a class="sidebar-nav-link @(IsActive("Metricas","Comparativa") ? "active" : "")"
+                   asp-controller="Metricas" asp-action="Comparativa">
+                    <i class="fa-solid fa-chart-bar"></i>
+                    <span>Comparativa</span>
+                </a>
+
+                <a class="sidebar-nav-link @(IsActive("Metricas","Ranking") ? "active" : "")"
+                   asp-controller="Metricas" asp-action="Ranking">
+                    <i class="fa-solid fa-trophy"></i>
+                    <span>Ranking Robustez</span>
+                </a>
+
+                <a class="sidebar-nav-link @(IsActive("Metricas","Evolucion") ? "active" : "")"
+                   asp-controller="Metricas" asp-action="Evolucion">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Evolución</span>
+                </a>
+
+                <a class="sidebar-nav-link @(IsActive("Metricas","Exportar") ? "active" : "")"
+                   asp-controller="Metricas" asp-action="Exportar">
+                    <i class="fa-solid fa-file-csv"></i>
+                    <span>Exportar CSV</span>
+                </a>
+            </nav>
+
+            <hr class="sidebar-divider" />
+
+            @* ── Proyectos ── *@
             <div class="sidebar-nav">
                 <div class="sidebar-nav-label">PROYECTOS</div>
 
                 @foreach (var p in todosProyectos)
                 {
-                    <form asp-controller="Proyecto" asp-action="Seleccionar" method="post"
-                          style="margin:0;">
+                    <form asp-controller="Proyecto" asp-action="Seleccionar"
+                          method="post" style="margin:0;">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="proyectoId" value="@p.Id" />
                         <button type="submit"
@@ -189,11 +231,12 @@
             </div>
 
             <div class="sidebar-footer">
-                <span class="sidebar-version">v1.0 · TFG 2026</span>
+                <span class="sidebar-version">v6.0 · TFG 2026</span>
             </div>
 
         </aside>
 
+        @* ── Contenido principal ── *@
         <main class="main-content">
             <div class="container-fluid px-4">
 
@@ -224,55 +267,44 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmOJFBwBbQ6zHoAQN/UxG3LLHEgR"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmOJFBBwBbQ6zHoAQN/UxG3LLHEgR"
             crossorigin="anonymous"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            document.querySelectorAll('pre code').forEach(function (block) {
-                hljs.highlightElement(block);
-            });
+            document.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
         });
     </script>
 
+    @* ── Polling del estado de la API ── *@
     <script>
-        (function () {
-            const container = document.getElementById('api-status-container');
-            const statusText = document.getElementById('api-status-text');
+    (function () {
+        const container  = document.getElementById('api-status-container');
+        const statusText = document.getElementById('api-status-text');
 
-            function actualizarIndicador(activa) {
-                if (!container || !statusText) return;
-                if (activa) {
-                    container.classList.remove('api-inactiva');
-                    container.classList.add('api-activa');
-                    statusText.textContent = 'ACTIVA';
-                } else {
-                    container.classList.remove('api-activa');
-                    container.classList.add('api-inactiva');
-                    statusText.textContent = 'INACTIVA';
-                }
-            }
+        function setStatus(activa) {
+            if (!container || !statusText) return;
+            container.classList.toggle('api-activa',  activa);
+            container.classList.toggle('api-inactiva', !activa);
+            statusText.textContent = activa ? 'ACTIVA' : 'INACTIVA';
+        }
 
-            async function checkApiEstado() {
-                try {
-                    const response = await fetch('/Dashboard/ApiEstado', {
-                        method: 'GET',
-                        headers: { 'Accept': 'application/json' },
-                        signal: AbortSignal.timeout(5000)
-                    });
-                    if (!response.ok) { actualizarIndicador(false); return; }
-                    const data = await response.json();
-                    actualizarIndicador(data.activo === true);
-                } catch (err) {
-                    actualizarIndicador(false);
-                }
-            }
+        async function check() {
+            try {
+                const r = await fetch('/Dashboard/ApiEstado', {
+                    headers: { Accept: 'application/json' },
+                    signal: AbortSignal.timeout(5000)
+                });
+                const d = r.ok ? await r.json() : null;
+                setStatus(d?.activo === true);
+            } catch { setStatus(false); }
+        }
 
-            checkApiEstado();
-            setInterval(checkApiEstado, 30000);
-        })();
+        check();
+        setInterval(check, 30000);
+    }());
     </script>
 
     @await RenderSectionAsync("Scripts", required: false)

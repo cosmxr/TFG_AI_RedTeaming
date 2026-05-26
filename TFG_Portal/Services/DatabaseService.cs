@@ -1,6 +1,7 @@
 // ============================================================
 // DatabaseService.cs — Acceso directo a SQL Server con Dapper
 // AI Red Teaming Platform - TFG Ingeniería Informática
+// v6.0 — benchmark plano, sin nivel_prompt, con benchmark_id
 // ============================================================
 
 using Dapper;
@@ -15,7 +16,7 @@ namespace TFG_Portal.Services
         private readonly ILogger<DatabaseService> _logger;
 
         public DatabaseService(IConfiguration configuration,
-                                ILogger<DatabaseService> logger)
+                               ILogger<DatabaseService> logger)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException(
@@ -23,9 +24,9 @@ namespace TFG_Portal.Services
             _logger = logger;
         }
 
-        // --------------------------------------------------------
+        // ────────────────────────────────────────────────────────
         // PROYECTOS
-        // --------------------------------------------------------
+        // ────────────────────────────────────────────────────────
 
         public async Task<IEnumerable<ProyectoResumen>> GetAllProyectosAsync()
         {
@@ -34,10 +35,10 @@ namespace TFG_Portal.Services
                 using var conn = new SqlConnection(_connectionString);
                 const string sql = @"
                     SELECT
-                        p.id                   AS Id,
-                        p.nombre               AS Nombre,
-                        p.fecha_inicio         AS FechaInicio,
-                        COUNT(DISTINCT a.id)   AS TotalAuditorias
+                        p.id                 AS Id,
+                        p.nombre             AS Nombre,
+                        p.fecha_inicio       AS FechaInicio,
+                        COUNT(DISTINCT a.id) AS TotalAuditorias
                     FROM Proyectos p
                     LEFT JOIN Auditorias a ON a.proyecto_id = p.id
                     GROUP BY p.id, p.nombre, p.fecha_inicio
@@ -59,17 +60,17 @@ namespace TFG_Portal.Services
                 using var conn = new SqlConnection(_connectionString);
                 const string sql = @"
                     SELECT
-                        p.id                   AS Id,
-                        p.nombre               AS Nombre,
-                        p.descripcion          AS Descripcion,
-                        p.modelo_ia            AS ModeloIa,
-                        p.fecha_inicio         AS FechaInicio,
-                        p.activo               AS Activo,
-                        COUNT(DISTINCT a.id)   AS TotalAuditorias,
-                        COUNT(at.id)           AS TotalAtaques
+                        p.id                 AS Id,
+                        p.nombre             AS Nombre,
+                        p.descripcion        AS Descripcion,
+                        p.modelo_ia          AS ModeloIa,
+                        p.fecha_inicio       AS FechaInicio,
+                        p.activo             AS Activo,
+                        COUNT(DISTINCT a.id) AS TotalAuditorias,
+                        COUNT(at.id)         AS TotalAtaques
                     FROM Proyectos p
-                    LEFT JOIN Auditorias a ON a.proyecto_id = p.id
-                    LEFT JOIN Ataques at   ON at.auditoria_id = a.id
+                    LEFT JOIN Auditorias a  ON a.proyecto_id = p.id
+                    LEFT JOIN Ataques    at ON at.auditoria_id = a.id
                     WHERE p.id = @Id
                     GROUP BY p.id, p.nombre, p.descripcion,
                              p.modelo_ia, p.fecha_inicio, p.activo";
@@ -83,7 +84,8 @@ namespace TFG_Portal.Services
             }
         }
 
-        public async Task<int> CreateProyectoAsync(string nombre, string? descripcion, string? modeloIa)
+        public async Task<int> CreateProyectoAsync(
+            string nombre, string? descripcion, string? modeloIa)
         {
             try
             {
@@ -93,12 +95,8 @@ namespace TFG_Portal.Services
                     VALUES (@Nombre, @Descripcion, @ModeloIa, GETDATE(), 1);
                     SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
-                var newId = await conn.QuerySingleAsync<int>(sql, new
-                {
-                    Nombre = nombre,
-                    Descripcion = descripcion,
-                    ModeloIa = modeloIa
-                });
+                var newId = await conn.QuerySingleAsync<int>(sql,
+                    new { Nombre = nombre, Descripcion = descripcion, ModeloIa = modeloIa });
 
                 _logger.LogInformation("Proyecto creado con ID: {Id}", newId);
                 return newId;
@@ -110,9 +108,9 @@ namespace TFG_Portal.Services
             }
         }
 
-        // --------------------------------------------------------
-        // ESTADÍSTICAS filtradas por proyecto
-        // --------------------------------------------------------
+        // ────────────────────────────────────────────────────────
+        // ESTADÍSTICAS — por proyecto
+        // ────────────────────────────────────────────────────────
 
         public async Task<int> GetTotalAuditoriasAsync(int proyectoId)
         {
@@ -137,12 +135,12 @@ namespace TFG_Portal.Services
                 using var conn = new SqlConnection(_connectionString);
                 const string sql = @"
                     SELECT COUNT(*)
-                    FROM Ataques at
+                    FROM   Ataques at
                     INNER JOIN Auditorias a ON a.id = at.auditoria_id
-                    WHERE a.proyecto_id = @ProyectoId";
+                    WHERE  a.proyecto_id = @ProyectoId";
 
-                return await conn.QuerySingleOrDefaultAsync<int>(sql,
-                    new { ProyectoId = proyectoId });
+                return await conn.QuerySingleOrDefaultAsync<int>(
+                    sql, new { ProyectoId = proyectoId });
             }
             catch (Exception ex)
             {
@@ -165,9 +163,9 @@ namespace TFG_Portal.Services
                     INNER JOIN Auditorias a ON a.id = at.auditoria_id
                     WHERE a.proyecto_id = @ProyectoId";
 
-                var porcentaje = await conn.QuerySingleOrDefaultAsync<double>(sql,
-                    new { ProyectoId = proyectoId });
-                return Math.Round(porcentaje, 1);
+                var pct = await conn.QuerySingleOrDefaultAsync<double>(
+                    sql, new { ProyectoId = proyectoId });
+                return Math.Round(pct, 1);
             }
             catch (Exception ex)
             {
@@ -183,12 +181,12 @@ namespace TFG_Portal.Services
                 using var conn = new SqlConnection(_connectionString);
                 const string sql = @"
                     SELECT COUNT(DISTINCT at.tipo_ataque)
-                    FROM Ataques at
+                    FROM   Ataques at
                     INNER JOIN Auditorias a ON a.id = at.auditoria_id
-                    WHERE a.proyecto_id = @ProyectoId";
+                    WHERE  a.proyecto_id = @ProyectoId";
 
-                return await conn.QuerySingleOrDefaultAsync<int>(sql,
-                    new { ProyectoId = proyectoId });
+                return await conn.QuerySingleOrDefaultAsync<int>(
+                    sql, new { ProyectoId = proyectoId });
             }
             catch (Exception ex)
             {
@@ -197,9 +195,9 @@ namespace TFG_Portal.Services
             }
         }
 
-        // --------------------------------------------------------
-        // GRÁFICOS filtrados por proyecto
-        // --------------------------------------------------------
+        // ────────────────────────────────────────────────────────
+        // GRÁFICOS — por proyecto
+        // ────────────────────────────────────────────────────────
 
         public async Task<IEnumerable<AtaquesPorTipo>> GetAtaquesPorTipoAsync(int proyectoId)
         {
@@ -216,8 +214,8 @@ namespace TFG_Portal.Services
                     GROUP BY at.tipo_ataque
                     ORDER BY Total DESC";
 
-                return await conn.QueryAsync<AtaquesPorTipo>(sql,
-                    new { ProyectoId = proyectoId });
+                return await conn.QueryAsync<AtaquesPorTipo>(
+                    sql, new { ProyectoId = proyectoId });
             }
             catch (Exception ex)
             {
@@ -242,8 +240,8 @@ namespace TFG_Portal.Services
                     GROUP BY CAST(at.fecha AS DATE)
                     ORDER BY CAST(at.fecha AS DATE) ASC";
 
-                return await conn.QueryAsync<AtaquesPorDia>(sql,
-                    new { ProyectoId = proyectoId });
+                return await conn.QueryAsync<AtaquesPorDia>(
+                    sql, new { ProyectoId = proyectoId });
             }
             catch (Exception ex)
             {
@@ -252,9 +250,8 @@ namespace TFG_Portal.Services
             }
         }
 
-        // ── NUEVO FASE 1 ─────────────────────────────────────────
-
-        public async Task<IEnumerable<AtaqueSeveridadResumen>> GetAtaquesPorSeveridadAsync(int proyectoId)
+        public async Task<IEnumerable<AtaqueSeveridadResumen>> GetAtaquesPorSeveridadAsync(
+            int proyectoId)
         {
             try
             {
@@ -271,8 +268,8 @@ namespace TFG_Portal.Services
                     GROUP BY at.severidad
                     ORDER BY Total DESC";
 
-                return await conn.QueryAsync<AtaqueSeveridadResumen>(sql,
-                    new { ProyectoId = proyectoId });
+                return await conn.QueryAsync<AtaqueSeveridadResumen>(
+                    sql, new { ProyectoId = proyectoId });
             }
             catch (Exception ex)
             {
@@ -281,6 +278,10 @@ namespace TFG_Portal.Services
             }
         }
 
+        // ────────────────────────────────────────────────────────
+        // RESUMEN DE AUDITORÍA — para la vista de resultados
+        // ────────────────────────────────────────────────────────
+
         public async Task<ResumenAuditoria?> GetResumenAuditoriaAsync(int auditoriaId)
         {
             try
@@ -288,11 +289,11 @@ namespace TFG_Portal.Services
                 using var conn = new SqlConnection(_connectionString);
                 const string sql = @"
                     SELECT
-                        au.id                                        AS AuditoriaId,
-                        au.modelo_ia                                 AS ModeloIa,
-                        COUNT(at.id)                                 AS TotalAtaques,
-                        SUM(CASE WHEN at.fue_vulnerable = 1
-                                 THEN 1 ELSE 0 END)                AS TotalVulnerables,
+                        au.id          AS AuditoriaId,
+                        au.modelo_ia   AS ModeloIa,
+                        COUNT(at.id)   AS TotalAtaques,
+                        SUM(CASE WHEN at.fue_vulnerable = 1 THEN 1 ELSE 0 END)
+                                       AS TotalVulnerables,
                         (
                             SELECT TOP 1 a2.severidad
                             FROM Ataques a2
@@ -301,7 +302,7 @@ namespace TFG_Portal.Services
                               AND a2.severidad IS NOT NULL
                             GROUP BY a2.severidad
                             ORDER BY COUNT(*) DESC
-                        )                                            AS SeveridadMasFrecuente,
+                        )              AS SeveridadMasFrecuente,
                         (
                             SELECT TOP 1 a3.tipo_payload
                             FROM Ataques a3
@@ -309,17 +310,18 @@ namespace TFG_Portal.Services
                               AND a3.tipo_payload IS NOT NULL
                             GROUP BY a3.tipo_payload
                             ORDER BY COUNT(*) DESC
-                        )                                            AS TipoPayloadMasFrecuente,
-                        CAST(AVG(CAST(at.tiempo_respuesta AS FLOAT)) AS INT) AS TiempoMedioRespuesta,
-                        MIN(at.fecha) AS FechaInicio,
-                        MAX(at.fecha) AS FechaUltimoAtaque
+                        )              AS TipoPayloadMasFrecuente,
+                        CAST(AVG(CAST(at.tiempo_respuesta AS FLOAT)) AS INT)
+                                       AS TiempoMedioRespuesta,
+                        MIN(at.fecha)  AS FechaInicio,
+                        MAX(at.fecha)  AS FechaUltimoAtaque
                     FROM Auditorias au
                     LEFT JOIN Ataques at ON at.auditoria_id = au.id
                     WHERE au.id = @AuditoriaId
                     GROUP BY au.id, au.modelo_ia";
 
-                return await conn.QuerySingleOrDefaultAsync<ResumenAuditoria>(sql,
-                    new { AuditoriaId = auditoriaId });
+                return await conn.QuerySingleOrDefaultAsync<ResumenAuditoria>(
+                    sql, new { AuditoriaId = auditoriaId });
             }
             catch (Exception ex)
             {
@@ -328,9 +330,109 @@ namespace TFG_Portal.Services
             }
         }
 
-        // --------------------------------------------------------
-        // TABLAS filtradas por proyecto
-        // --------------------------------------------------------
+        // ────────────────────────────────────────────────────────
+        // RESULTADO COMPLETO DE AUDITORÍA BENCHMARK
+        // Devuelve los 10 ataques de una auditoría con benchmark_id
+        // y canary_detectado para la vista de resultados.
+        // ────────────────────────────────────────────────────────
+
+        public async Task<BenchmarkAuditoriaResult?> GetBenchmarkResultAsync(int auditoriaId)
+        {
+            try
+            {
+                using var conn = new SqlConnection(_connectionString);
+
+                // Cabecera
+                const string sqlHeader = @"
+                    SELECT
+                        au.id        AS AuditoriaId,
+                        au.modelo_ia AS ModeloAuditado,
+                        COUNT(at.id) AS TotalCasos,
+                        SUM(CASE WHEN at.fue_vulnerable = 1 THEN 1 ELSE 0 END)
+                                     AS TotalVulnerables
+                    FROM Auditorias au
+                    LEFT JOIN Ataques at ON at.auditoria_id = au.id
+                    WHERE au.id = @AuditoriaId
+                    GROUP BY au.id, au.modelo_ia";
+
+                var header = await conn.QuerySingleOrDefaultAsync<BenchmarkAuditoriaResult>(
+                    sqlHeader, new { AuditoriaId = auditoriaId });
+
+                if (header is null) return null;
+
+                // Detalle por caso — incluye benchmark_id y canary_detectado
+                const string sqlDetalle = @"
+                    SELECT
+                        at.id               AS AtaqueId,
+                        at.tipo_ataque      AS TipoAtaque,
+                        at.benchmark_id     AS benchmark_id,
+                        at.fue_vulnerable   AS FueVulnerable,
+                        at.canary_detectado AS CanaryDetectado,
+                        at.severidad        AS Severidad,
+                        at.tipo_payload     AS TipoPayload,
+                        at.justificacion    AS Justificacion,
+                        at.recomendacion    AS Recomendacion,
+                        at.tiempo_respuesta AS TiempoMs,
+                        at.respuesta_ia     AS Respuesta
+                    FROM Ataques at
+                    WHERE at.auditoria_id = @AuditoriaId
+                    ORDER BY at.id ASC";
+
+                var detalles = await conn.QueryAsync<BenchmarkCaseResultRow>(
+                    sqlDetalle, new { AuditoriaId = auditoriaId });
+
+                // Enriquecer cada fila con los metadatos del BenchmarkSuite
+                header.Resultados = detalles.Select(d =>
+                {
+                    var caso = BenchmarkSuite.PorTipo(d.TipoAtaque) ?? new BenchmarkAttack
+                    {
+                        Id = d.benchmark_id ?? d.TipoAtaque,
+                        TipoAtaque = d.TipoAtaque,
+                        Nombre = d.TipoAtaque,
+                        Severidad = d.Severidad ?? "Media",
+                        Categoria = CategoriasAtaque.ObtenerCategoria(d.TipoAtaque),
+                    };
+
+                    return new BenchmarkCaseResult
+                    {
+                        Caso = caso,
+                        Respuesta = d.Respuesta ?? string.Empty,
+                        FueVulnerable = d.FueVulnerable,
+                        Severidad = d.Severidad,
+                        Justificacion = d.Justificacion,
+                        Recomendacion = d.Recomendacion,
+                        TiempoMs = d.TiempoMs,
+                    };
+                }).ToList();
+
+                return header;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener resultado benchmark auditoría {Id}", auditoriaId);
+                return null;
+            }
+        }
+
+        // ── DTO interno para el mapeo de Dapper ──────────────────
+        private class BenchmarkCaseResultRow
+        {
+            public int AtaqueId { get; set; }
+            public string TipoAtaque { get; set; } = string.Empty;
+            public string? benchmark_id { get; set; }
+            public bool FueVulnerable { get; set; }
+            public bool CanaryDetectado { get; set; }
+            public string? Severidad { get; set; }
+            public string? TipoPayload { get; set; }
+            public string? Justificacion { get; set; }
+            public string? Recomendacion { get; set; }
+            public int? TiempoMs { get; set; }
+            public string? Respuesta { get; set; }
+        }
+
+        // ────────────────────────────────────────────────────────
+        // HISTORIAL — lista y detalle de ataques
+        // ────────────────────────────────────────────────────────
 
         public async Task<IEnumerable<AuditoriaResumen>> GetUltimasAuditoriasAsync(
             int proyectoId, int cantidad = 5)
@@ -340,12 +442,12 @@ namespace TFG_Portal.Services
                 using var conn = new SqlConnection(_connectionString);
                 const string sql = @"
                     SELECT TOP(@Cantidad)
-                        a.id             AS Id,
-                        a.proyecto_id    AS ProyectoId,
-                        a.modelo_ia      AS ModeloIa,
-                        a.descripcion    AS Descripcion,
-                        a.fecha_inicio   AS FechaCreacion,
-                        COUNT(at.id)     AS TotalAtaques,
+                        a.id           AS Id,
+                        a.proyecto_id  AS ProyectoId,
+                        a.modelo_ia    AS ModeloIa,
+                        a.descripcion  AS Descripcion,
+                        a.fecha_inicio AS FechaCreacion,
+                        COUNT(at.id)   AS TotalAtaques,
                         SUM(CASE WHEN at.fue_vulnerable = 1
                                  THEN 1 ELSE 0 END) AS AtaquesVulnerables
                     FROM Auditorias a
@@ -370,21 +472,23 @@ namespace TFG_Portal.Services
             try
             {
                 using var conn = new SqlConnection(_connectionString);
+                // benchmark_id añadido; nivel_prompt eliminado
                 const string sql = @"
-            SELECT
-                at.id                        AS Id,
-                at.tipo_ataque               AS TipoAtaque,
-                LEFT(at.prompt_enviado, 100) AS PromptFragmento,
-                at.fue_vulnerable            AS FueVulnerable,
-                at.fecha                     AS FechaCreacion,
-                a.modelo_ia                  AS ModeloIa,
-                at.severidad                 AS Severidad,
-                at.tipo_payload              AS TipoPayload,
-                at.nivel_prompt              AS NivelPrompt
-            FROM Ataques at
-            INNER JOIN Auditorias a ON a.id = at.auditoria_id
-            WHERE a.proyecto_id = @ProyectoId
-            ORDER BY at.fecha DESC";
+                    SELECT
+                        at.id                        AS Id,
+                        at.tipo_ataque               AS TipoAtaque,
+                        at.benchmark_id              AS benchmark_id,
+                        LEFT(at.prompt_enviado, 100) AS PromptFragmento,
+                        at.fue_vulnerable            AS FueVulnerable,
+                        at.canary_detectado          AS CanaryDetectado,
+                        at.fecha                     AS FechaCreacion,
+                        a.modelo_ia                  AS ModeloIa,
+                        at.severidad                 AS Severidad,
+                        at.tipo_payload              AS TipoPayload
+                    FROM Ataques at
+                    INNER JOIN Auditorias a ON a.id = at.auditoria_id
+                    WHERE a.proyecto_id = @ProyectoId
+                    ORDER BY at.fecha DESC";
 
                 return await conn.QueryAsync<AtaqueListItem>(sql,
                     new { ProyectoId = proyectoId });
@@ -401,28 +505,29 @@ namespace TFG_Portal.Services
             try
             {
                 using var conn = new SqlConnection(_connectionString);
+                // benchmark_id y canary_detectado añadidos; iteraciones e nivel_prompt eliminados
                 const string sql = @"
-            SELECT
-                at.id                   AS Id,
-                at.auditoria_id         AS AuditoriaId,
-                at.tipo_ataque          AS TipoAtaque,
-                at.prompt_enviado       AS PromptEnviado,
-                at.respuesta_ia         AS RespuestaIa,
-                at.fue_vulnerable       AS FueVulnerable,
-                at.fecha                AS FechaCreacion,
-                at.severidad            AS Severidad,
-                at.tipo_payload         AS TipoPayload,
-                at.justificacion        AS Justificacion,
-                at.recomendacion        AS Recomendacion,
-                at.tiempo_respuesta     AS TiempoRespuesta,
-                at.iteraciones          AS Iteraciones,
-                at.nivel_prompt         AS NivelPrompt,
-                a.modelo_ia             AS ModeloIa,
-                a.descripcion           AS AuditoriaDescripcion,
-                a.fecha_inicio        AS AuditoriaFechaCreacion
-            FROM Ataques at
-            INNER JOIN Auditorias a ON a.id = at.auditoria_id
-            WHERE at.id = @Id";
+                    SELECT
+                        at.id                  AS Id,
+                        at.auditoria_id        AS AuditoriaId,
+                        at.tipo_ataque         AS TipoAtaque,
+                        at.benchmark_id        AS benchmark_id,
+                        at.prompt_enviado      AS PromptEnviado,
+                        at.respuesta_ia        AS RespuestaIa,
+                        at.fue_vulnerable      AS FueVulnerable,
+                        at.canary_detectado    AS CanaryDetectado,
+                        at.fecha               AS FechaCreacion,
+                        at.severidad           AS Severidad,
+                        at.tipo_payload        AS TipoPayload,
+                        at.justificacion       AS Justificacion,
+                        at.recomendacion       AS Recomendacion,
+                        at.tiempo_respuesta    AS TiempoRespuesta,
+                        a.modelo_ia            AS ModeloIa,
+                        a.descripcion          AS AuditoriaDescripcion,
+                        a.fecha_inicio         AS AuditoriaFechaCreacion
+                    FROM Ataques at
+                    INNER JOIN Auditorias a ON a.id = at.auditoria_id
+                    WHERE at.id = @Id";
 
                 return await conn.QuerySingleOrDefaultAsync<AtaqueDetalle>(
                     sql, new { Id = id });
@@ -434,31 +539,32 @@ namespace TFG_Portal.Services
             }
         }
 
-        // --------------------------------------------------------
-        // COMPARATIVA MODELOS
-        // --------------------------------------------------------
+        // ────────────────────────────────────────────────────────
+        // COMPARATIVA DE MODELOS
+        // ────────────────────────────────────────────────────────
 
-        public async Task<IEnumerable<ComparativaModelos>> GetComparativaModelosAsync(int proyectoId)
+        public async Task<IEnumerable<ComparativaModelos>> GetComparativaModelosAsync(
+            int proyectoId)
         {
             try
             {
                 using var conn = new SqlConnection(_connectionString);
                 const string sql = @"
                     SELECT
-                        cm.id                 AS Id,
-                        cm.proyecto_id        AS ProyectoId,
-                        cm.modelo_ia          AS ModeloIa,
-                        cm.tipo_ataque        AS TipoAtaque,
-                        cm.total_ataques      AS TotalAtaques,
-                        cm.total_vulnerables  AS TotalVulnerables,
+                        cm.id                  AS Id,
+                        cm.proyecto_id         AS ProyectoId,
+                        cm.modelo_ia           AS ModeloIa,
+                        cm.tipo_ataque         AS TipoAtaque,
+                        cm.total_ataques       AS TotalAtaques,
+                        cm.total_vulnerables   AS TotalVulnerables,
                         cm.tasa_vulnerabilidad AS TasaVulnerabilidad,
-                        cm.severidad_alta     AS SeveridadAlta,
-                        cm.severidad_media    AS SeveridadMedia,
-                        cm.severidad_baja     AS SeveridadBaja,
-                        cm.tiempo_medio       AS TiempoMedio,
-                        cm.tiempo_min         AS TiempoMin,
-                        cm.tiempo_max         AS TiempoMax,
-                        cm.fecha_calculo      AS FechaCalculo
+                        cm.severidad_alta      AS SeveridadAlta,
+                        cm.severidad_media     AS SeveridadMedia,
+                        cm.severidad_baja      AS SeveridadBaja,
+                        cm.tiempo_medio        AS TiempoMedio,
+                        cm.tiempo_min          AS TiempoMin,
+                        cm.tiempo_max          AS TiempoMax,
+                        cm.fecha_calculo       AS FechaCalculo
                     FROM ComparativaModelos cm
                     WHERE cm.proyecto_id = @ProyectoId
                     ORDER BY cm.fecha_calculo DESC, cm.modelo_ia, cm.tipo_ataque";
@@ -470,6 +576,53 @@ namespace TFG_Portal.Services
             {
                 _logger.LogError(ex, "Error al obtener comparativa de modelos");
                 return Enumerable.Empty<ComparativaModelos>();
+            }
+        }
+
+        // ────────────────────────────────────────────────────────
+        // RANKING DE ROBUSTEZ — para comparativa entre modelos
+        // Calcula en BD el score ponderado: Alta=2pts, Media=1pt
+        // ────────────────────────────────────────────────────────
+
+        public async Task<IEnumerable<RobustezItem>> GetRankingRobustezAsync(int proyectoId)
+        {
+            try
+            {
+                using var conn = new SqlConnection(_connectionString);
+                const string sql = @"
+                    SELECT
+                        au.modelo_ia                                            AS ModeloAuditado,
+                        COUNT(*)                                                AS TotalAtaques,
+                        SUM(CAST(at.fue_vulnerable AS INT))                     AS TotalVulnerables,
+                        ROUND(
+                            CAST(SUM(CAST(at.fue_vulnerable AS INT)) AS FLOAT)
+                            / NULLIF(COUNT(*), 0) * 100, 1)                    AS TasaVulnerabilidad,
+                        -- Score: puntos ganados en casos NO vulnerables
+                        SUM(CASE
+                            WHEN at.fue_vulnerable = 0 AND at.severidad = 'Alta'  THEN 2
+                            WHEN at.fue_vulnerable = 0 AND at.severidad != 'Alta' THEN 1
+                            WHEN at.fue_vulnerable = 0 AND at.severidad IS NULL   THEN 1
+                            ELSE 0
+                        END)                                                    AS ScoreObtenido,
+                        -- Máximo posible: Alta=2, resto=1 para cada caso del benchmark
+                        SUM(CASE
+                            WHEN at.severidad = 'Alta' THEN 2
+                            ELSE 1
+                        END)                                                    AS ScoreMaximo,
+                        SUM(CASE WHEN at.canary_detectado = 1 THEN 1 ELSE 0 END) AS TotalCanary
+                    FROM Ataques at
+                    INNER JOIN Auditorias au ON au.id = at.auditoria_id
+                    WHERE au.proyecto_id = @ProyectoId
+                    GROUP BY au.modelo_ia
+                    ORDER BY ScoreObtenido DESC, TasaVulnerabilidad ASC";
+
+                return await conn.QueryAsync<RobustezItem>(sql,
+                    new { ProyectoId = proyectoId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener ranking de robustez");
+                return Enumerable.Empty<RobustezItem>();
             }
         }
     }

@@ -1,12 +1,13 @@
 @* ============================================================
    Views/Auditoria/Detalle.cshtml — Detalle completo de un ataque
    AI Red Teaming Platform - TFG Ingeniería Informática
-   FASE 2 — Muestra análisis completo del juez IA
+   v6.0 — benchmark plano, canary detection, sin nivel_prompt
    ============================================================ *@
 
 @model TFG_Portal.Models.AtaqueDetalle
 @{
     ViewData["Title"] = $"Ataque #{Model.Id}";
+    var casoBenchmark = Model.CasoBenchmark;
 }
 
 @* ── Cabecera ── *@
@@ -19,48 +20,131 @@
             <h1 class="page-title">Ataque #@Model.Id</h1>
             <p class="page-subtitle">
                 <span class="badge-tipo-ataque me-2">@Model.TipoAtaque</span>
+                @if (!string.IsNullOrEmpty(Model.benchmark_id))
+                {
+                    <span class="benchmark-id-badge me-2">@Model.benchmark_id</span>
+                }
                 @Model.FechaCreacion.ToString("dd/MM/yyyy HH:mm:ss")
             </p>
         </div>
     </div>
     <div class="d-flex gap-2">
-        <a asp-controller="Auditoria" asp-action="Historial"
-           class="btn-redteam-secondary">
+        <a asp-controller="Auditoria" asp-action="Historial" class="btn-redteam-secondary">
             <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
-        <a asp-controller="Auditoria" asp-action="Nueva"
-           class="btn-redteam-primary">
+        <a asp-controller="Auditoria" asp-action="Nueva" class="btn-redteam-primary">
             <i class="fa-solid fa-crosshairs"></i> Nuevo Ataque
         </a>
     </div>
 </div>
 
-@* ── Resultado badge grande ── *@
-<div class="mb-4 d-flex align-items-center gap-3 flex-wrap">
+@* ── Resultado + Canary banners ── *@
+<div class="resultado-banner mb-4">
     @if (Model.FueVulnerable)
     {
-        <span class="badge-vulnerable badge-vulnerable-lg">
-            <i class="fa-solid fa-triangle-exclamation me-2"></i>VULNERABLE
-        </span>
-        @if (!string.IsNullOrEmpty(Model.Severidad))
-        {
-            <span class="@Model.SeveridadBadgeClass" style="font-size: 0.85rem; padding: 6px 14px;">
-                Severidad: @Model.Severidad
-            </span>
-        }
+        <div class="banner-vulnerable">
+            <div class="banner-icon">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div class="banner-content">
+                <div class="banner-title">MODELO VULNERABLE</div>
+                @if (!string.IsNullOrEmpty(Model.Severidad))
+                {
+                    <div class="banner-sub">Severidad <strong>@Model.Severidad</strong></div>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(Model.Severidad))
+            {
+                <span class="@Model.SeveridadBadgeClass banner-sev-badge">@Model.Severidad</span>
+            }
+        </div>
     }
     else
     {
-        <span class="badge-seguro badge-seguro-lg">
-            <i class="fa-solid fa-shield-halved me-2"></i>SEGURO
-        </span>
+        <div class="banner-seguro">
+            <div class="banner-icon">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div class="banner-content">
+                <div class="banner-title">MODELO RESISTENTE</div>
+                <div class="banner-sub">El ataque fue rechazado correctamente</div>
+            </div>
+        </div>
     }
+
+    @* Canary indicator *@
+    <div class="canary-indicator @(Model.CanaryDetectado ? "canary-hit" : "canary-miss")">
+        <i class="fa-solid @(Model.CanaryDetectado ? "fa-radiation" : "fa-check-circle") me-2"></i>
+        <div>
+            <div class="canary-label">CANARY TOKEN</div>
+            <div class="canary-status">@(Model.CanaryDetectado ? "Detectado en respuesta" : "No detectado")</div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-4">
 
     @* ── Columna izquierda ── *@
     <div class="col-lg-8">
+
+        @* ── Panel benchmark (si existe) ── *@
+        @if (casoBenchmark != null)
+        {
+            <div class="card-redteam mb-4 benchmark-panel">
+                <div class="card-redteam-header">
+                    <span class="card-redteam-title">
+                        <i class="fa-solid fa-flask me-2" style="color: #a78bfa;"></i>
+                        CASO BENCHMARK — @casoBenchmark.Id
+                    </span>
+                    <span class="owasp-ref-badge">@casoBenchmark.OwaspRef</span>
+                </div>
+                <div class="card-redteam-body">
+                    <div class="benchmark-nombre mb-3">@casoBenchmark.Nombre</div>
+
+                    <div class="benchmark-meta-grid mb-3">
+                        <div class="bm-meta-item">
+                            <span class="bm-meta-label">Técnica</span>
+                            <span class="bm-meta-value">@casoBenchmark.Tecnica</span>
+                        </div>
+                        <div class="bm-meta-item">
+                            <span class="bm-meta-label">Categoría</span>
+                            <span class="@(casoBenchmark.EsAiRedteam ? "badge bg-warning text-dark" : "badge bg-secondary")">
+                                @(casoBenchmark.EsAiRedteam ? "AI Red Team" : "Clásico")
+                            </span>
+                        </div>
+                        <div class="bm-meta-item">
+                            <span class="bm-meta-label">Canary esperado</span>
+                            <code class="canary-code">@casoBenchmark.CanaryToken</code>
+                        </div>
+                    </div>
+
+                    <div class="benchmark-criterios">
+                        <div class="criterio-item criterio-seguro">
+                            <div class="criterio-label">
+                                <i class="fa-solid fa-shield-halved me-1"></i>
+                                Comportamiento seguro esperado
+                            </div>
+                            <div class="criterio-text">@casoBenchmark.ComportamientoSeguro</div>
+                        </div>
+                        <div class="criterio-item criterio-fallo">
+                            <div class="criterio-label">
+                                <i class="fa-solid fa-xmark me-1"></i>
+                                Criterio de fallo
+                            </div>
+                            <div class="criterio-text">@casoBenchmark.CriterioFallo</div>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(casoBenchmark.Referencia))
+                    {
+                        <div class="benchmark-ref mt-3">
+                            <i class="fa-solid fa-book me-1"></i>
+                            @casoBenchmark.Referencia
+                        </div>
+                    }
+                </div>
+            </div>
+        }
 
         @* ── Panel del juez IA ── *@
         @if (!string.IsNullOrEmpty(Model.Justificacion) || !string.IsNullOrEmpty(Model.Recomendacion))
@@ -76,8 +160,6 @@
                     </span>
                 </div>
                 <div class="card-redteam-body">
-
-                    @* Justificación *@
                     @if (!string.IsNullOrEmpty(Model.Justificacion))
                     {
                         <div class="mb-4">
@@ -85,13 +167,9 @@
                                 <i class="fa-solid fa-magnifying-glass-chart me-1"></i>
                                 Justificación
                             </div>
-                            <div class="juez-text-block">
-                                @Model.Justificacion
-                            </div>
+                            <div class="juez-text-block">@Model.Justificacion</div>
                         </div>
                     }
-
-                    @* Recomendación *@
                     @if (!string.IsNullOrEmpty(Model.Recomendacion))
                     {
                         <div class="mb-3">
@@ -105,8 +183,6 @@
                             </div>
                         </div>
                     }
-
-                    @* Clasificación del juez *@
                     <div class="juez-clasificacion">
                         <div class="juez-clasificacion-item">
                             <span class="label-redteam">Tipo Payload</span>
@@ -122,33 +198,39 @@
                             </div>
                         }
                         <div class="juez-clasificacion-item">
-                            <span class="label-redteam">Nivel Prompt</span>
-                            <span class="badge-nivel-inline">
-                                Nivel @(Model.NivelPrompt ?? 0) — @Model.NivelPromptEtiqueta
-                            </span>
+                            <span class="label-redteam">Canary</span>
+                            <span class="@Model.CanaryBadgeClass">@Model.CanaryEtiqueta</span>
                         </div>
                     </div>
                 </div>
             </div>
         }
 
-        @* Prompt enviado *@
+        @* ── Prompt enviado ── *@
         <div class="card-redteam mb-4">
             <div class="card-redteam-header">
                 <span class="card-redteam-title">
                     <i class="fa-solid fa-arrow-up-from-bracket me-2" style="color: var(--color-yellow);"></i>
-                    PROMPT ENVIADO
+                    PROMPT DE ATAQUE
                 </span>
-                @if (Model.NivelPrompt.HasValue)
-                {
-                    <span style="font-family: var(--font-code); font-size: 0.68rem; color: var(--color-text-dim);">
-                        Nivel @Model.NivelPrompt — @Model.NivelPromptEtiqueta
-                    </span>
-                }
+                <span style="font-family: var(--font-code); font-size: 0.65rem; color: var(--color-text-dim);">
+                    user prompt
+                </span>
             </div>
             <div class="card-redteam-body">
+                @if (casoBenchmark != null && !string.IsNullOrEmpty(casoBenchmark.SystemPrompt))
+                {
+                    <div class="mb-3">
+                        <div class="code-block-header code-block-header-system">
+                            <span>system prompt (benchmark)</span>
+                        </div>
+                        <div class="code-block code-block-system">
+                            <pre><code>@casoBenchmark.SystemPrompt</code></pre>
+                        </div>
+                    </div>
+                }
                 <div class="code-block-header">
-                    <span>user prompt</span>
+                    <span>user prompt (ataque)</span>
                 </div>
                 <div class="code-block">
                     <pre><code>@Model.PromptEnviado</code></pre>
@@ -156,23 +238,27 @@
             </div>
         </div>
 
-        @* Respuesta de la IA *@
+        @* ── Respuesta del modelo ── *@
         <div class="card-redteam">
             <div class="card-redteam-header">
                 <span class="card-redteam-title">
                     <i class="fa-solid fa-robot me-2" style="color: var(--color-green);"></i>
                     RESPUESTA DEL MODELO AUDITADO
                 </span>
+                <span style="font-family: var(--font-code); font-size: 0.65rem; color: var(--color-green);">
+                    @Model.ModeloIa
+                </span>
             </div>
             <div class="card-redteam-body">
-                <div class="code-block-header">
-                    <span>assistant response</span>
-                    <span style="color: var(--color-green); font-size: 0.68rem;">
-                        @Model.ModeloIa
-                    </span>
-                </div>
-                <div class="code-block" style="max-height: 480px; overflow-y: auto;">
-                    <pre><code>@Model.RespuestaIa</code></pre>
+                <div class="code-block" style="max-height: 480px; overflow-y: auto; position: relative;">
+                    @if (Model.CanaryDetectado && casoBenchmark != null)
+                    {
+                        <div class="canary-overlay-warning">
+                            <i class="fa-solid fa-radiation me-2"></i>
+                            Canary <code>@casoBenchmark.CanaryToken</code> detectado
+                        </div>
+                    }
+                    <pre><code id="respuesta-code">@Model.RespuestaIa</code></pre>
                 </div>
             </div>
         </div>
@@ -182,7 +268,7 @@
     @* ── Columna derecha — Metadata ── *@
     <div class="col-lg-4">
 
-        @* Métricas rápidas *@
+        @* Métricas *@
         <div class="card-redteam mb-4">
             <div class="card-redteam-header">
                 <span class="card-redteam-title">
@@ -199,36 +285,9 @@
                         </dd>
                     </div>
                     <div class="meta-item">
-                        <dt>Iteraciones</dt>
+                        <dt>Canary</dt>
                         <dd>
-                            <span class="mono">@Model.Iteraciones / 3</span>
-                            @if (Model.Iteraciones == 1)
-                            {
-                                <span class="ms-1" style="font-size: 0.7rem; color: var(--color-green);">
-                                    (primer intento)
-                                </span>
-                            }
-                            else if (Model.Iteraciones >= 3)
-                            {
-                                <span class="ms-1" style="font-size: 0.7rem; color: var(--color-red);">
-                                    (agotados)
-                                </span>
-                            }
-                        </dd>
-                    </div>
-                    <div class="meta-item">
-                        <dt>Nivel de Prompt</dt>
-                        <dd>
-                            @if (Model.NivelPrompt.HasValue)
-                            {
-                                <span class="badge-nivel-inline">
-                                    @Model.NivelPrompt — @Model.NivelPromptEtiqueta
-                                </span>
-                            }
-                            else
-                            {
-                                <span style="color: var(--color-text-dim);">—</span>
-                            }
+                            <span class="@Model.CanaryBadgeClass">@Model.CanaryEtiqueta</span>
                         </dd>
                     </div>
                     <div class="meta-item">
@@ -239,6 +298,13 @@
                             </span>
                         </dd>
                     </div>
+                    @if (!string.IsNullOrEmpty(Model.Severidad))
+                    {
+                        <div class="meta-item">
+                            <dt>Severidad</dt>
+                            <dd><span class="@Model.SeveridadBadgeClass">@Model.Severidad</span></dd>
+                        </div>
+                    }
                 </dl>
             </div>
         </div>
@@ -257,21 +323,33 @@
                         <dt>ID Ataque</dt>
                         <dd class="mono">#@Model.Id</dd>
                     </div>
+                    @if (!string.IsNullOrEmpty(Model.benchmark_id))
+                    {
+                        <div class="meta-item">
+                            <dt>Benchmark ID</dt>
+                            <dd><span class="benchmark-id-badge">@Model.benchmark_id</span></dd>
+                        </div>
+                    }
                     <div class="meta-item">
                         <dt>Tipo</dt>
                         <dd><span class="badge-tipo-ataque">@Model.TipoAtaque</span></dd>
                     </div>
                     <div class="meta-item">
+                        <dt>Categoría</dt>
+                        <dd>
+                            <span class="@(Model.EsAiRedteam ? "badge bg-warning text-dark" : "badge bg-secondary")"
+                                  style="font-size:0.68rem;">
+                                @(Model.EsAiRedteam ? "AI Red Team" : "Clásico")
+                            </span>
+                        </dd>
+                    </div>
+                    <div class="meta-item">
                         <dt>Resultado</dt>
                         <dd>
                             @if (Model.FueVulnerable)
-                            {
-                                <span class="badge-vulnerable">Vulnerable</span>
-                            }
+                            { <span class="badge-vulnerable">Vulnerable</span> }
                             else
-                            {
-                                <span class="badge-seguro">Seguro</span>
-                            }
+                            { <span class="badge-seguro">Seguro</span> }
                         </dd>
                     </div>
                     <div class="meta-item">
@@ -325,76 +403,286 @@
 
 @section Styles {
 <style>
-    /* ── Meta list (sin cambios) ── */
-    .meta-list { margin: 0; padding: 0; }
-    .meta-item {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 10px 16px; border-bottom: 1px solid var(--color-border); gap: 12px;
-    }
-    .meta-item:last-child { border-bottom: none; }
-    .meta-item dt {
-        font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600;
-        color: var(--color-text-dim); text-transform: uppercase;
-        letter-spacing: 0.08em; white-space: nowrap; flex-shrink: 0;
-    }
-    .meta-item dd { margin: 0; text-align: right; font-size: 0.82rem; color: var(--color-text); }
+/* ── Resultado banner ─────────────────────────────────── */
+.resultado-banner {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.banner-vulnerable, .banner-seguro {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 220px;
+    padding: 14px 20px;
+    border-radius: var(--radius);
+}
+.banner-vulnerable {
+    background: rgba(220, 53, 69, 0.08);
+    border: 1px solid rgba(220, 53, 69, 0.35);
+}
+.banner-seguro {
+    background: rgba(0, 255, 65, 0.05);
+    border: 1px solid rgba(0, 255, 65, 0.25);
+}
+.banner-icon {
+    font-size: 1.6rem;
+}
+.banner-vulnerable .banner-icon { color: #dc3545; }
+.banner-seguro    .banner-icon  { color: var(--color-green); }
+.banner-title {
+    font-family: var(--font-code);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+.banner-vulnerable .banner-title { color: #dc3545; }
+.banner-seguro    .banner-title  { color: var(--color-green); }
+.banner-sub {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+}
+.banner-sev-badge {
+    margin-left: auto;
+    font-size: 0.8rem !important;
+    padding: 5px 14px !important;
+}
 
-    /* ── Panel del juez ── */
-    .juez-text-block {
-        background: rgba(255, 170, 0, 0.06);
-        border: 1px solid rgba(255, 170, 0, 0.15);
-        border-left: 3px solid var(--color-yellow);
-        border-radius: var(--radius);
-        padding: 14px 18px;
-        font-family: var(--font-ui); font-size: 0.85rem;
-        color: var(--color-text); line-height: 1.7;
-    }
-    .juez-recomendacion-block {
-        background: rgba(0, 255, 65, 0.04);
-        border: 1px solid rgba(0, 255, 65, 0.12);
-        border-left: 3px solid var(--color-green);
-        border-radius: var(--radius);
-        padding: 14px 18px;
-        font-family: var(--font-ui); font-size: 0.85rem;
-        color: var(--color-text-muted); line-height: 1.7;
-    }
-    .juez-clasificacion {
-        display: flex; gap: 20px; flex-wrap: wrap;
-        padding-top: 16px; border-top: 1px solid var(--color-border); margin-top: 8px;
-    }
-    .juez-clasificacion-item {
-        display: flex; flex-direction: column; gap: 6px;
-    }
+/* ── Canary indicator ─────────────────────────────────── */
+.canary-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-radius: var(--radius);
+    min-width: 200px;
+    font-family: var(--font-code);
+}
+.canary-hit {
+    background: rgba(220, 53, 69, 0.08);
+    border: 1px solid rgba(220, 53, 69, 0.35);
+    color: #dc3545;
+}
+.canary-miss {
+    background: rgba(0, 255, 65, 0.04);
+    border: 1px solid rgba(0, 255, 65, 0.2);
+    color: var(--color-green);
+}
+.canary-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    opacity: 0.7;
+}
+.canary-status {
+    font-size: 0.78rem;
+    font-weight: 600;
+}
 
-    /* ── Badges de tipo payload ── */
-    .badge-tipo-payload {
-        font-family: var(--font-code); font-size: 0.72rem; font-weight: 500;
-        padding: 3px 10px; border-radius: 3px; letter-spacing: 0.04em;
-        display: inline-block; text-transform: uppercase;
-    }
-    .badge-payload-funcional {
-        background: rgba(68, 136, 255, 0.12); border: 1px solid rgba(68, 136, 255, 0.4);
-        color: #4488ff;
-    }
-    .badge-payload-generico {
-        background: rgba(136, 136, 136, 0.12); border: 1px solid rgba(136, 136, 136, 0.3);
-        color: #888888;
-    }
-    .badge-payload-rechazo {
-        background: rgba(0, 255, 65, 0.08); border: 1px solid rgba(0, 255, 65, 0.25);
-        color: var(--color-green);
-    }
-    .badge-payload-desconocido {
-        background: var(--color-bg-tertiary); border: 1px solid var(--color-border);
-        color: var(--color-text-dim);
-    }
+/* ── Benchmark panel ──────────────────────────────────── */
+.benchmark-panel {
+    border-color: rgba(167, 139, 250, 0.3) !important;
+}
+.benchmark-panel .card-redteam-header {
+    border-bottom-color: rgba(167, 139, 250, 0.2) !important;
+}
+.benchmark-nombre {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text);
+    line-height: 1.5;
+}
+.benchmark-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+.bm-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.bm-meta-label {
+    font-family: var(--font-code);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--color-text-dim);
+    text-transform: uppercase;
+}
+.bm-meta-value {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    line-height: 1.4;
+}
+.benchmark-criterios {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.criterio-item {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    border-left: 3px solid;
+}
+.criterio-seguro {
+    background: rgba(0, 255, 65, 0.04);
+    border-left-color: var(--color-green);
+}
+.criterio-fallo {
+    background: rgba(220, 53, 69, 0.05);
+    border-left-color: #dc3545;
+}
+.criterio-label {
+    font-family: var(--font-code);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+.criterio-seguro .criterio-label { color: var(--color-green); }
+.criterio-fallo  .criterio-label { color: #dc3545; }
+.criterio-text {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+}
+.benchmark-ref {
+    font-size: 0.7rem;
+    color: var(--color-text-dim);
+    font-style: italic;
+    padding-top: 10px;
+    border-top: 1px solid var(--color-border);
+}
+.owasp-ref-badge {
+    font-family: var(--font-code);
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: rgba(167, 139, 250, 0.12);
+    border: 1px solid rgba(167, 139, 250, 0.3);
+    color: #a78bfa;
+    letter-spacing: 0.05em;
+}
+.benchmark-id-badge {
+    font-family: var(--font-code);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: rgba(167, 139, 250, 0.1);
+    border: 1px solid rgba(167, 139, 250, 0.25);
+    color: #a78bfa;
+}
+.canary-code {
+    font-family: var(--font-code);
+    font-size: 0.75rem;
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.08);
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid rgba(220, 53, 69, 0.2);
+}
 
-    /* ── Badge nivel prompt inline ── */
-    .badge-nivel-inline {
-        font-family: var(--font-code); font-size: 0.72rem;
-        color: var(--color-text-muted); padding: 2px 8px;
-        background: var(--color-bg-tertiary); border: 1px solid var(--color-border);
-        border-radius: 3px; display: inline-block;
-    }
+/* ── Code blocks ──────────────────────────────────────── */
+.code-block-header-system {
+    background: rgba(167, 139, 250, 0.08) !important;
+    border-bottom: 1px solid rgba(167, 139, 250, 0.2) !important;
+    color: #a78bfa !important;
+}
+.code-block-system {
+    background: rgba(167, 139, 250, 0.04) !important;
+    border: 1px solid rgba(167, 139, 250, 0.15) !important;
+    max-height: 180px;
+    overflow-y: auto;
+}
+.canary-overlay-warning {
+    background: rgba(220, 53, 69, 0.12);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-family: var(--font-code);
+    font-size: 0.72rem;
+    color: #dc3545;
+    margin-bottom: 10px;
+}
+
+/* ── Meta list ────────────────────────────────────────── */
+.meta-list { margin: 0; padding: 0; }
+.meta-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--color-border);
+    gap: 12px;
+}
+.meta-item:last-child { border-bottom: none; }
+.meta-item dt {
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.meta-item dd { margin: 0; text-align: right; font-size: 0.82rem; color: var(--color-text); }
+
+/* ── Juez ─────────────────────────────────────────────── */
+.juez-text-block {
+    background: rgba(255, 170, 0, 0.06);
+    border: 1px solid rgba(255, 170, 0, 0.15);
+    border-left: 3px solid var(--color-yellow);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    font-size: 0.85rem;
+    color: var(--color-text);
+    line-height: 1.7;
+}
+.juez-recomendacion-block {
+    background: rgba(0, 255, 65, 0.04);
+    border: 1px solid rgba(0, 255, 65, 0.12);
+    border-left: 3px solid var(--color-green);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    line-height: 1.7;
+}
+.juez-clasificacion {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border);
+    margin-top: 8px;
+}
+.juez-clasificacion-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* ── Payload badges ───────────────────────────────────── */
+.badge-tipo-payload {
+    font-family: var(--font-code);
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+    display: inline-block;
+    text-transform: uppercase;
+}
+.badge-payload-funcional  { background: rgba(68,136,255,0.12); border: 1px solid rgba(68,136,255,0.4); color: #4488ff; }
+.badge-payload-generico   { background: rgba(136,136,136,0.12); border: 1px solid rgba(136,136,136,0.3); color: #888; }
+.badge-payload-rechazo    { background: rgba(0,255,65,0.08); border: 1px solid rgba(0,255,65,0.25); color: var(--color-green); }
+.badge-payload-desconocido { background: var(--color-bg-tertiary); border: 1px solid var(--color-border); color: var(--color-text-dim); }
 </style>
 }

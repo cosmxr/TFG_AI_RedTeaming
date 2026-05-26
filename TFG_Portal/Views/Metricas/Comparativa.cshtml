@@ -1,0 +1,466 @@
+@* ============================================================
+   Views/Metricas/Comparativa.cshtml — Heatmap modelo × ataque
+   AI Red Teaming Platform - TFG Ingeniería Informática
+   v6.0
+   ============================================================ *@
+
+@using TFG_Portal.Models
+@{
+    ViewData["Title"] = "Comparativa de Modelos";
+    var proyecto  = ViewData["Proyecto"]  as Proyecto;
+    var modelos   = ViewData["Modelos"]   as List<string>  ?? new();
+    var tipos     = ViewData["Tipos"]     as List<string>  ?? new();
+    var indice    = ViewData["Indice"]    as Dictionary<(string, string), ComparativaModelos>
+                    ?? new();
+    var ranking   = ViewData["Ranking"]   as List<RobustezItem> ?? new();
+}
+
+@* ── Cabecera ── *@
+<div class="d-flex align-items-center justify-content-between mb-4 pt-2">
+    <div class="d-flex align-items-center gap-3">
+        <div class="page-header-icon">
+            <i class="fa-solid fa-chart-bar"></i>
+        </div>
+        <div>
+            <h1 class="page-title">Comparativa de Modelos</h1>
+            <p class="page-subtitle">
+                Tasa de vulnerabilidad por modelo y tipo de ataque
+                @if (proyecto != null)
+                {
+                    <span class="ms-2">
+                        · <strong style="color:var(--color-green);">@proyecto.Nombre</strong>
+                    </span>
+                }
+            </p>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-controller="Metricas" asp-action="Ranking"
+           class="btn-redteam-secondary">
+            <i class="fa-solid fa-trophy me-1"></i> Ranking
+        </a>
+        <a asp-controller="Auditoria" asp-action="Benchmark"
+           class="btn-redteam-primary">
+            <i class="fa-solid fa-flask me-1"></i> Nuevo Benchmark
+        </a>
+    </div>
+</div>
+
+@if (!modelos.Any())
+{
+    <div class="card-redteam">
+        <div class="empty-state-redteam" style="min-height:280px;">
+            <i class="fa-solid fa-chart-bar fa-3x mb-4" style="opacity:0.2;"></i>
+            <p style="font-size:0.95rem; color:var(--color-text-muted);">
+                No hay datos de comparativa todavía.
+            </p>
+            <p style="font-size:0.82rem; color:var(--color-text-dim); max-width:400px;">
+                Lanza auditorías benchmark contra al menos un modelo para
+                ver la comparativa.
+            </p>
+            <a asp-controller="Auditoria" asp-action="Benchmark"
+               class="btn-redteam-primary mt-3">
+                <i class="fa-solid fa-flask me-1"></i> Lanzar benchmark
+            </a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-4">
+
+        @* ── Heatmap principal ── *@
+        <div class="col-lg-8">
+            <div class="card-redteam mb-4">
+                <div class="card-redteam-header">
+                    <span class="card-redteam-title">
+                        <i class="fa-solid fa-table-cells me-2"></i>
+                        HEATMAP — TASA DE VULNERABILIDAD (%)
+                    </span>
+                    <div class="hm-legend">
+                        <span class="hm-legend-item hm-safe">0%</span>
+                        <div class="hm-legend-bar"></div>
+                        <span class="hm-legend-item hm-danger">100%</span>
+                    </div>
+                </div>
+                <div class="table-responsive-redteam">
+                    <table class="table-redteam heatmap-table">
+                        <thead>
+                            <tr>
+                                <th class="hm-modelo-col">Modelo</th>
+                                @foreach (var tipo in tipos)
+                                {
+                                    <th class="text-center hm-tipo-col"
+                                        title="@CategoriasAtaque.EtiquetaAmigable(tipo)">
+                                        <span class="hm-tipo-label @(CategoriasAtaque.ObtenerCategoria(tipo) == "ai_redteam" ? "hm-tipo-ai" : "hm-tipo-web")">
+                                            @tipo.Replace("_INJECTION","_INJ")
+                                               .Replace("PROMPT_INJ","PI")
+                                               .Replace("INDIRECT_INJ","II")
+                                               .Replace("CONTEXT_MANIPULATION","CM")
+                                               .Replace("SYSTEM_PROMPT_LEAKAGE","SPL")
+                                               .Replace("DATA_EXTRACTION","DE")
+                                        </span>
+                                    </th>
+                                }
+                                <th class="text-center" style="width:70px;">Media</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var modelo in modelos)
+                            {
+                                var filasModelo = tipos
+                                    .Select(t => indice.GetValueOrDefault((modelo, t)))
+                                    .ToList();
+                                var tasas = filasModelo
+                                    .Where(f => f != null)
+                                    .Select(f => (double)f!.TasaVulnerabilidad)
+                                    .ToList();
+                                var mediaModelo = tasas.Any()
+                                    ? Math.Round(tasas.Average(), 1) : 0.0;
+
+                                <tr>
+                                    <td class="hm-modelo-nombre">
+                                        <span class="mono"
+                                              style="font-size:0.7rem; color:var(--color-text-muted);">
+                                            @(modelo.Length > 28 ? modelo[..28] + "…" : modelo)
+                                        </span>
+                                    </td>
+                                    @foreach (var tipo in tipos)
+                                    {
+                                        var fila = indice.GetValueOrDefault((modelo, tipo));
+                                        if (fila != null)
+                                        {
+                                            var tasa = (double)fila.TasaVulnerabilidad;
+                                            <td class="text-center hm-cell"
+                                                style="background:@HeatColor(tasa);"
+                                                title="@tipo: @tasa% (@fila.TotalVulnerables/@fila.TotalAtaques)">
+                                                <span class="hm-cell-val"
+                                                      style="color:@(tasa > 50 ? "#fff" : "var(--color-text)");">
+                                                    @tasa.ToString("0")%
+                                                </span>
+                                            </td>
+                                        }
+                                        else
+                                        {
+                                            <td class="text-center hm-cell hm-cell-empty">
+                                                <span style="color:var(--color-text-dim);">—</span>
+                                            </td>
+                                        }
+                                    }
+                                    <td class="text-center">
+                                        <span class="hm-media"
+                                              style="color:@(mediaModelo >= 50 ? "#dc3545" : "var(--color-green)");">
+                                            @mediaModelo.ToString("0.0")%
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @* Leyenda de categorías *@
+                <div class="d-flex gap-3 px-3 pb-3 mt-2 flex-wrap">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="hm-tipo-label hm-tipo-web" style="font-size:0.65rem;">WEB</span>
+                        <span style="font-size:0.72rem; color:var(--color-text-dim);">
+                            XSS, SQLi, LFI, CSRF
+                        </span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="hm-tipo-label hm-tipo-ai" style="font-size:0.65rem;">AI</span>
+                        <span style="font-size:0.72rem; color:var(--color-text-dim);">
+                            Prompt Injection, Jailbreak, SPL, DE, CM, II
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            @* Gráfico de barras agrupadas *@
+            <div class="card-redteam">
+                <div class="card-redteam-header">
+                    <span class="card-redteam-title">
+                        <i class="fa-solid fa-chart-bar me-2"></i>
+                        TASA DE VULNERABILIDAD POR TIPO
+                    </span>
+                </div>
+                <div style="position:relative; height:260px; padding:12px 4px 4px;">
+                    <canvas id="chartComparativa"></canvas>
+                </div>
+            </div>
+        </div>
+
+        @* ── Sidebar: ranking rápido ── *@
+        <div class="col-lg-4">
+
+            <div class="card-redteam mb-4">
+                <div class="card-redteam-header">
+                    <span class="card-redteam-title">
+                        <i class="fa-solid fa-trophy me-2" style="color:#ffaa00;"></i>
+                        RANKING DE ROBUSTEZ
+                    </span>
+                    <a asp-controller="Metricas" asp-action="Ranking"
+                       class="btn-redteam-secondary"
+                       style="padding:3px 10px; font-size:0.72rem;">
+                        Ver todo
+                    </a>
+                </div>
+                <div style="padding:0;">
+                    @foreach (var item in ranking.Take(5))
+                    {
+                        <div class="rank-card-item @(item.Posicion == 1 ? "rank-card-first" : "")">
+                            <div class="rank-card-pos">
+                                @if (item.Posicion == 1)
+                                {
+                                    <i class="fa-solid fa-trophy" style="color:#ffaa00;"></i>
+                                }
+                                else
+                                {
+                                    <span class="mono">#@item.Posicion</span>
+                                }
+                            </div>
+                            <div class="rank-card-info">
+                                <div class="rank-card-modelo">
+                                    @(item.ModeloAuditado.Length > 22
+                                        ? item.ModeloAuditado[..22] + "…"
+                                        : item.ModeloAuditado)
+                                </div>
+                                <div class="rank-card-score">
+                                    @item.ScoreFormateado ·
+                                    <span style="color:@(item.PorcentajeRobustez >= 70
+                                                         ? "var(--color-green)" : "#dc3545");">
+                                        @item.PorcentajeRobustez.ToString("0.0")%
+                                    </span>
+                                </div>
+                            </div>
+                            <span class="@item.NivelCssClass" style="font-size:0.62rem;">
+                                @item.NivelRobustez
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @* Estadísticas globales *@
+            <div class="card-redteam">
+                <div class="card-redteam-header">
+                    <span class="card-redteam-title">
+                        <i class="fa-solid fa-circle-info me-2"></i>
+                        RESUMEN GLOBAL
+                    </span>
+                </div>
+                <div class="card-redteam-body" style="padding:0;">
+                    <dl class="meta-list">
+                        <div class="meta-item">
+                            <dt>Modelos auditados</dt>
+                            <dd class="mono">@modelos.Count</dd>
+                        </div>
+                        <div class="meta-item">
+                            <dt>Tipos evaluados</dt>
+                            <dd class="mono">@tipos.Count</dd>
+                        </div>
+                        <div class="meta-item">
+                            <dt>Mejor robustez</dt>
+                            <dd>
+                                @if (ranking.Any())
+                                {
+                                    <span style="font-family:var(--font-code); font-size:0.72rem;
+                                                 color:var(--color-green);">
+                                        @ranking.First().PorcentajeRobustez.ToString("0.0")%
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span style="color:var(--color-text-dim);">—</span>
+                                }
+                            </dd>
+                        </div>
+                        <div class="meta-item">
+                            <dt>Peor robustez</dt>
+                            <dd>
+                                @if (ranking.Any())
+                                {
+                                    <span style="font-family:var(--font-code); font-size:0.72rem;
+                                                 color:#dc3545;">
+                                        @ranking.Last().PorcentajeRobustez.ToString("0.0")%
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span style="color:var(--color-text-dim);">—</span>
+                                }
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+
+        </div>
+    </div>
+}
+
+@* Data para Chart.js *@
+<script id="data-comparativa" type="application/json">@Html.Raw(ViewData["ComparativaJson"] as string ?? "[]")</script>
+<script id="data-ranking"     type="application/json">@Html.Raw(ViewData["RankingJson"]     as string ?? "[]")</script>
+
+@* Helper C# para color del heatmap *@
+@functions {
+    static string HeatColor(double tasa)
+    {
+        if (tasa <= 0)   return "rgba(0,255,65,0.08)";
+        if (tasa <= 25)  return "rgba(0,255,65,0.18)";
+        if (tasa <= 50)  return "rgba(255,170,0,0.25)";
+        if (tasa <= 75)  return "rgba(220,53,69,0.35)";
+        return "rgba(220,53,69,0.60)";
+    }
+}
+
+@section Styles {
+<style>
+/* ── Heatmap ── */
+.heatmap-table th, .heatmap-table td { padding:8px 6px !important; }
+.hm-modelo-col  { min-width:140px; }
+.hm-tipo-col    { min-width:58px; }
+.hm-modelo-nombre { padding-left:12px !important; }
+
+.hm-tipo-label {
+    font-family:var(--font-code); font-size:0.58rem; font-weight:700;
+    padding:2px 5px; border-radius:3px; display:inline-block;
+    letter-spacing:0.04em; white-space:nowrap;
+}
+.hm-tipo-web { background:rgba(0,255,65,0.1); color:var(--color-green); border:1px solid rgba(0,255,65,0.25); }
+.hm-tipo-ai  { background:rgba(255,170,0,0.1); color:#ffaa00; border:1px solid rgba(255,170,0,0.25); }
+
+.hm-cell { transition:opacity 0.15s; }
+.hm-cell:hover { opacity:0.8; }
+.hm-cell-empty { background:var(--color-bg-tertiary) !important; }
+.hm-cell-val { font-family:var(--font-code); font-size:0.72rem; font-weight:600; }
+.hm-media    { font-family:var(--font-code); font-size:0.8rem; font-weight:700; }
+
+.hm-legend {
+    display:flex; align-items:center; gap:6px;
+    font-family:var(--font-code); font-size:0.62rem;
+}
+.hm-legend-bar {
+    width:60px; height:8px; border-radius:4px;
+    background:linear-gradient(90deg, rgba(0,255,65,0.3), rgba(220,53,69,0.6));
+}
+.hm-safe   { color:var(--color-green); }
+.hm-danger { color:#dc3545; }
+
+/* ── Ranking cards ── */
+.rank-card-item {
+    display:flex; align-items:center; gap:12px;
+    padding:10px 14px; border-bottom:1px solid var(--color-border);
+}
+.rank-card-item:last-child { border-bottom:none; }
+.rank-card-first { background:rgba(255,170,0,0.04); }
+.rank-card-pos {
+    font-family:var(--font-code); font-size:0.8rem; font-weight:700;
+    color:var(--color-text-dim); width:24px; text-align:center; flex-shrink:0;
+}
+.rank-card-info  { flex:1; min-width:0; }
+.rank-card-modelo {
+    font-family:var(--font-code); font-size:0.72rem;
+    color:var(--color-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.rank-card-score {
+    font-size:0.7rem; color:var(--color-text-dim); margin-top:2px;
+}
+
+/* ── Meta list ── */
+.meta-list { margin:0; padding:0; }
+.meta-item {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 16px; border-bottom:1px solid var(--color-border);
+}
+.meta-item:last-child { border-bottom:none; }
+.meta-item dt {
+    font-family:var(--font-ui); font-size:0.72rem; font-weight:600;
+    color:var(--color-text-dim); text-transform:uppercase; letter-spacing:0.08em;
+}
+.meta-item dd { margin:0; font-size:0.82rem; color:var(--color-text); }
+</style>
+}
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+    const gridCol  = 'rgba(255,255,255,0.06)';
+    const textCol  = '#666d76';
+    const green    = '#00ff41';
+    const yellow   = '#ffaa00';
+    const red      = '#dc3545';
+    const blue     = '#4488ff';
+    const purple   = '#a78bfa';
+
+    Chart.defaults.color       = textCol;
+    Chart.defaults.font.family = "'JetBrains Mono', monospace";
+    Chart.defaults.font.size   = 11;
+
+    const comparativa = JSON.parse(
+        document.getElementById('data-comparativa')?.textContent || '[]');
+    const rankingData = JSON.parse(
+        document.getElementById('data-ranking')?.textContent || '[]');
+
+    if (!comparativa.length || !document.getElementById('chartComparativa')) return;
+
+    // Agrupar por tipo de ataque → dataset por modelo
+    const modelosSet = [...new Set(comparativa.map(c => c.ModeloIa))];
+    const tiposSet   = [...new Set(comparativa.map(c => c.TipoAtaque))];
+
+    const PALETTE = [green, yellow, blue, purple, red, '#00ccff'];
+
+    const datasets = modelosSet.map((modelo, i) => ({
+        label: modelo.length > 20 ? modelo.substring(0, 20) + '…' : modelo,
+        data: tiposSet.map(tipo => {
+            const fila = comparativa.find(
+                c => c.ModeloIa === modelo && c.TipoAtaque === tipo);
+            return fila ? fila.TasaVulnerabilidad : null;
+        }),
+        backgroundColor: PALETTE[i % PALETTE.length] + '33',
+        borderColor: PALETTE[i % PALETTE.length],
+        borderWidth: 1,
+        borderRadius: 3,
+    }));
+
+    const labelMap = {
+        PROMPT_INJECTION:'PI', JAILBREAK:'JB', SYSTEM_PROMPT_LEAKAGE:'SPL',
+        DATA_EXTRACTION:'DE', CONTEXT_MANIPULATION:'CM', INDIRECT_INJECTION:'II',
+        XSS:'XSS', SQLI:'SQLi', LFI:'LFI', CSRF:'CSRF'
+    };
+
+    new Chart(document.getElementById('chartComparativa'), {
+        type: 'bar',
+        data: {
+            labels: tiposSet.map(t => labelMap[t] || t),
+            datasets
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: { color: textCol, boxWidth: 12, padding: 12 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1)}%`
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { color: gridCol }, ticks: { color: textCol } },
+                y: {
+                    beginAtZero: true, max: 100,
+                    grid: { color: gridCol },
+                    ticks: { color: textCol, callback: v => v + '%' }
+                }
+            }
+        }
+    });
+}());
+</script>
+}

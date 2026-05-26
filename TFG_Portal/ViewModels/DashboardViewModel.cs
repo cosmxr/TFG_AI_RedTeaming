@@ -29,6 +29,8 @@ namespace TFG_Portal.ViewModels
         /// <summary>Número de tipos de ataque distintos usados.</summary>
         public int TiposAtaqueDistintos { get; set; }
 
+        public int TotalCanaryDetectado { get; set; }
+
         public ProyectoResumen? ProyectoActivo { get; set; }
 
         public IEnumerable<ProyectoResumen> TodosProyectos { get; set; }
@@ -49,6 +51,9 @@ namespace TFG_Portal.ViewModels
         /// Formato: [{"Fecha":"07/04","Total":3}, ...]
         /// </summary>
         public string AtaquesPorDiaJson { get; set; } = "[]";
+
+        public string AtaquesPorSeveridadJson { get; set; } = "[]";
+
 
         // -------------------------------------------------------
         // SECCIÓN TABLA

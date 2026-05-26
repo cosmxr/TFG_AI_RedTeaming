@@ -1,0 +1,517 @@
+@* ============================================================
+   Views/Auditoria/ResultadoBenchmark.cshtml — Informe benchmark
+   AI Red Teaming Platform - TFG Ingeniería Informática
+   v6.0 — sin @functions · tablas inline
+   ============================================================ *@
+
+@model TFG_Portal.Models.BenchmarkAuditoriaResult
+@using TFG_Portal.Models
+@{
+    ViewData["Title"] = $"Informe #{Model.AuditoriaId}";
+    var proyecto  = ViewData["Proyecto"] as Proyecto;
+    var ranking   = ViewData["Ranking"]  as IEnumerable<RobustezItem>
+                    ?? Enumerable.Empty<RobustezItem>();
+
+    var posicion  = ranking.FirstOrDefault(r =>
+        string.Equals(r.ModeloAuditado, Model.ModeloAuditado,
+                       StringComparison.OrdinalIgnoreCase));
+
+    var clasicos  = Model.Resultados.Where(r => r.Caso.Categoria == "clasico").ToList();
+    var aiRedteam = Model.Resultados.Where(r => r.Caso.Categoria == "ai_redteam").ToList();
+}
+
+@* ── Cabecera ── *@
+<div class="d-flex align-items-center justify-content-between mb-4 pt-2">
+    <div class="d-flex align-items-center gap-3">
+        <div class="page-header-icon bm-header-icon">
+            <i class="fa-solid fa-chart-column" style="color:#a78bfa;"></i>
+        </div>
+        <div>
+            <h1 class="page-title" style="color:#a78bfa;">
+                Informe Benchmark #@Model.AuditoriaId
+            </h1>
+            <p class="page-subtitle">
+                <span class="mono" style="color:var(--color-text-muted);">
+                    @Model.ModeloAuditado
+                </span>
+                @if (proyecto != null)
+                {
+                    <span class="ms-2">
+                        · <strong style="color:var(--color-green);">@proyecto.Nombre</strong>
+                    </span>
+                }
+            </p>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-controller="Auditoria" asp-action="Benchmark"
+           class="btn-redteam-secondary">
+            <i class="fa-solid fa-flask me-1"></i> Nuevo Benchmark
+        </a>
+        <a asp-controller="Metricas" asp-action="Comparativa"
+           class="btn-redteam-secondary">
+            <i class="fa-solid fa-chart-bar me-1"></i> Comparativa
+        </a>
+    </div>
+</div>
+
+@* ── Scorecard ── *@
+<div class="scorecard mb-4">
+
+    @* Círculo SVG de robustez *@
+    <div class="scorecard-score">
+        <div class="score-ring">
+            <svg viewBox="0 0 120 120" class="score-svg">
+                <circle cx="60" cy="60" r="52"
+                        fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+                <circle cx="60" cy="60" r="52"
+                        fill="none"
+                        stroke="@(Model.PorcentajeRobustez >= 90 ? "#00ff41" :
+                                   Model.PorcentajeRobustez >= 70 ? "#0dcaf0" :
+                                   Model.PorcentajeRobustez >= 50 ? "#ffaa00" : "#dc3545")"
+                        stroke-width="8"
+                        stroke-linecap="round"
+                        stroke-dasharray="@((326.7 * Model.PorcentajeRobustez / 100).ToString("F1")) 326.7"
+                        stroke-dashoffset="81.7"/>
+            </svg>
+            <div class="score-inner">
+                <div class="score-pct">
+                    @Model.PorcentajeRobustez.ToString("0")<span>%</span>
+                </div>
+                <div class="score-sublbl">Robustez</div>
+            </div>
+        </div>
+        <div class="score-pts">
+            @Model.ScoreObtenido <span>/ @Model.ScoreMaximo pts</span>
+        </div>
+        <span class="@Model.NivelRobustezCssClass" style="font-size:0.78rem;">
+            @Model.NivelRobustez
+        </span>
+    </div>
+
+    @* KPIs *@
+    <div class="scorecard-kpis">
+        <div class="sc-kpi">
+            <div class="sc-kpi-val">@Model.TotalCasos</div>
+            <div class="sc-kpi-lbl">Casos</div>
+        </div>
+        <div class="sc-kpi sc-kpi-red">
+            <div class="sc-kpi-val">@Model.TotalVulnerables</div>
+            <div class="sc-kpi-lbl">Vulnerables</div>
+        </div>
+        <div class="sc-kpi sc-kpi-ok">
+            <div class="sc-kpi-val">@(Model.TotalCasos - Model.TotalVulnerables)</div>
+            <div class="sc-kpi-lbl">Resistidos</div>
+        </div>
+        <div class="sc-kpi sc-kpi-canary">
+            <div class="sc-kpi-val">@Model.TotalCanaryDetectado</div>
+            <div class="sc-kpi-lbl">Canary hit</div>
+        </div>
+        <div class="sc-kpi sc-kpi-ai">
+            <div class="sc-kpi-val">@Model.VulnerablesAiRedteam</div>
+            <div class="sc-kpi-lbl">AI vuln.</div>
+        </div>
+        <div class="sc-kpi">
+            <div class="sc-kpi-val">@Model.VulnerablesClasico</div>
+            <div class="sc-kpi-lbl">Web vuln.</div>
+        </div>
+    </div>
+
+    @* Posición en el ranking *@
+    @if (posicion != null)
+    {
+        <div class="scorecard-rank">
+            <div class="rank-num">#@posicion.Posicion</div>
+            <div class="rank-lbl">en el ranking</div>
+            <div class="rank-total">de @ranking.Count() modelos</div>
+        </div>
+    }
+
+</div>
+
+@* ── Tabla: Ataques clásicos ── *@
+@if (clasicos.Any())
+{
+    <div class="card-redteam mb-4">
+        <div class="card-redteam-header">
+            <span class="card-redteam-title">
+                <i class="fa-solid fa-globe me-2" style="color:var(--color-green);"></i>
+                ATAQUES CLÁSICOS
+            </span>
+            <span style="font-size:0.72rem; color:var(--color-text-dim);">
+                @clasicos.Count(r => r.FueVulnerable) / @clasicos.Count vulnerables
+            </span>
+        </div>
+        <div class="table-responsive-redteam">
+            <table class="table-redteam">
+                <thead>
+                    <tr>
+                        <th style="width:60px;">ID</th>
+                        <th>Caso</th>
+                        <th style="width:80px;" class="text-center">Resultado</th>
+                        <th style="width:90px;" class="text-center">Canary</th>
+                        <th style="width:75px;" class="text-center">Severidad</th>
+                        <th style="width:60px;" class="text-center">ms</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in clasicos)
+                    {
+                        <tr class="@(r.FueVulnerable ? "fila-vulnerable" : "fila-segura")">
+                            <td>
+                                <span class="bm-id-badge">@r.Caso.Id</span>
+                            </td>
+                            <td>
+                                <div style="font-size:0.78rem; color:var(--color-text); line-height:1.4;">
+                                    @r.Caso.Nombre
+                                </div>
+                                @if (!string.IsNullOrEmpty(r.Justificacion))
+                                {
+                                    <div style="font-size:0.7rem; color:var(--color-text-dim);
+                                                margin-top:2px; font-style:italic;">
+                                        @(r.Justificacion.Length > 90
+                                            ? r.Justificacion[..90] + "…"
+                                            : r.Justificacion)
+                                    </div>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (r.FueVulnerable)
+                                {
+                                    <span class="badge-vulnerable">Vuln.</span>
+                                }
+                                else
+                                {
+                                    <span class="badge-seguro">OK</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (r.CanaryDetectado)
+                                {
+                                    <span class="badge bg-danger"
+                                          style="font-size:0.65rem; padding:2px 7px;">
+                                        <i class="fa-solid fa-radiation me-1"></i>Hit
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success"
+                                          style="font-size:0.65rem; padding:2px 7px;">
+                                        <i class="fa-solid fa-check me-1"></i>Clean
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (!string.IsNullOrEmpty(r.Severidad))
+                                {
+                                    <span class="@(r.Severidad switch {
+                                        "Alta"  => "badge bg-danger",
+                                        "Media" => "badge bg-warning text-dark",
+                                        _       => "badge bg-info text-dark"
+                                    })" style="font-size:0.65rem;">
+                                        @r.Severidad
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span style="color:var(--color-text-dim);">—</span>
+                                }
+                            </td>
+                            <td class="text-center mono"
+                                style="font-size:0.72rem; color:var(--color-text-dim);">
+                                @(r.TiempoMs.HasValue
+                                    ? (r.TiempoMs.Value / 1000).ToString() + "s"
+                                    : "—")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@* ── Tabla: AI Red Team ── *@
+@if (aiRedteam.Any())
+{
+    <div class="card-redteam mb-4">
+        <div class="card-redteam-header">
+            <span class="card-redteam-title">
+                <i class="fa-solid fa-robot me-2" style="color:#ffaa00;"></i>
+                AI RED TEAM
+            </span>
+            <span style="font-size:0.72rem; color:var(--color-text-dim);">
+                @aiRedteam.Count(r => r.FueVulnerable) / @aiRedteam.Count vulnerables
+            </span>
+        </div>
+        <div class="table-responsive-redteam">
+            <table class="table-redteam">
+                <thead>
+                    <tr>
+                        <th style="width:60px;">ID</th>
+                        <th>Caso</th>
+                        <th style="width:80px;" class="text-center">Resultado</th>
+                        <th style="width:90px;" class="text-center">Canary</th>
+                        <th style="width:75px;" class="text-center">Severidad</th>
+                        <th style="width:60px;" class="text-center">ms</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in aiRedteam)
+                    {
+                        <tr class="@(r.FueVulnerable ? "fila-vulnerable" : "fila-segura")">
+                            <td>
+                                <span class="bm-id-badge bm-id-badge-ai">@r.Caso.Id</span>
+                            </td>
+                            <td>
+                                <div style="font-size:0.78rem; color:var(--color-text); line-height:1.4;">
+                                    @r.Caso.Nombre
+                                </div>
+                                @if (!string.IsNullOrEmpty(r.Justificacion))
+                                {
+                                    <div style="font-size:0.7rem; color:var(--color-text-dim);
+                                                margin-top:2px; font-style:italic;">
+                                        @(r.Justificacion.Length > 90
+                                            ? r.Justificacion[..90] + "…"
+                                            : r.Justificacion)
+                                    </div>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (r.FueVulnerable)
+                                {
+                                    <span class="badge-vulnerable">Vuln.</span>
+                                }
+                                else
+                                {
+                                    <span class="badge-seguro">OK</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (r.CanaryDetectado)
+                                {
+                                    <span class="badge bg-danger"
+                                          style="font-size:0.65rem; padding:2px 7px;">
+                                        <i class="fa-solid fa-radiation me-1"></i>Hit
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success"
+                                          style="font-size:0.65rem; padding:2px 7px;">
+                                        <i class="fa-solid fa-check me-1"></i>Clean
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (!string.IsNullOrEmpty(r.Severidad))
+                                {
+                                    <span class="@(r.Severidad switch {
+                                        "Alta"  => "badge bg-danger",
+                                        "Media" => "badge bg-warning text-dark",
+                                        _       => "badge bg-info text-dark"
+                                    })" style="font-size:0.65rem;">
+                                        @r.Severidad
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span style="color:var(--color-text-dim);">—</span>
+                                }
+                            </td>
+                            <td class="text-center mono"
+                                style="font-size:0.72rem; color:var(--color-text-dim);">
+                                @(r.TiempoMs.HasValue
+                                    ? (r.TiempoMs.Value / 1000).ToString() + "s"
+                                    : "—")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@* ── Ranking del proyecto ── *@
+@if (ranking.Any())
+{
+    <div class="card-redteam">
+        <div class="card-redteam-header">
+            <span class="card-redteam-title">
+                <i class="fa-solid fa-trophy me-2" style="color:#ffaa00;"></i>
+                RANKING DE ROBUSTEZ — PROYECTO
+            </span>
+            <a asp-controller="Metricas" asp-action="Ranking"
+               class="btn-redteam-secondary" style="padding:4px 12px; font-size:0.75rem;">
+                Ver completo <i class="fa-solid fa-arrow-right ms-1"></i>
+            </a>
+        </div>
+        <div class="table-responsive-redteam">
+            <table class="table-redteam">
+                <thead>
+                    <tr>
+                        <th style="width:40px;" class="text-center">#</th>
+                        <th>Modelo</th>
+                        <th style="width:90px;" class="text-center">Score</th>
+                        <th style="width:90px;" class="text-center">Robustez</th>
+                        <th style="width:90px;" class="text-center">Tasa vuln.</th>
+                        <th style="width:70px;" class="text-center">Canary</th>
+                        <th style="width:80px;" class="text-center">Nivel</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in ranking)
+                    {
+                        bool esCurrent = string.Equals(item.ModeloAuditado,
+                            Model.ModeloAuditado, StringComparison.OrdinalIgnoreCase);
+                        <tr class="@(esCurrent ? "fila-actual" : "")">
+                            <td class="mono col-meta text-center">
+                                @if (item.Posicion == 1)
+                                {
+                                    <i class="fa-solid fa-trophy" style="color:#ffaa00;"></i>
+                                }
+                                else
+                                {
+                                    @item.Posicion
+                                }
+                            </td>
+                            <td>
+                                <span class="mono"
+                                      style="font-size:0.72rem; color:var(--color-text-muted);">
+                                    @(item.ModeloAuditado.Length > 34
+                                        ? item.ModeloAuditado[..34] + "…"
+                                        : item.ModeloAuditado)
+                                </span>
+                                @if (esCurrent)
+                                {
+                                    <span class="ms-2 rank-este-informe">Este informe</span>
+                                }
+                            </td>
+                            <td class="text-center mono"
+                                style="font-size:0.8rem; font-weight:700; color:#a78bfa;">
+                                @item.ScoreFormateado
+                            </td>
+                            <td class="text-center mono"
+                                style="font-size:0.8rem; font-weight:700;
+                                       color:@(item.PorcentajeRobustez >= 70
+                                               ? "var(--color-green)" : "#dc3545");">
+                                @item.PorcentajeRobustez.ToString("0.0")%
+                            </td>
+                            <td class="text-center mono"
+                                style="font-size:0.78rem;
+                                       color:@(item.TasaVulnerabilidad >= 50
+                                               ? "#dc3545" : "var(--color-green)");">
+                                @item.TasaFormateada
+                            </td>
+                            <td class="text-center mono"
+                                style="font-size:0.75rem; color:#ff6b6b;">
+                                @item.TotalCanary
+                            </td>
+                            <td class="text-center">
+                                <span class="@item.NivelCssClass" style="font-size:0.65rem;">
+                                    @item.NivelRobustez
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@section Styles {
+<style>
+/* ── Header icon ── */
+.bm-header-icon {
+    width:42px; height:42px; border-radius:var(--radius);
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.1rem;
+    background:rgba(167,139,250,0.1); border:1px solid rgba(167,139,250,0.3);
+}
+
+/* ── Scorecard ── */
+.scorecard {
+    display:flex; gap:20px; flex-wrap:wrap; align-items:center;
+    padding:20px; background:var(--color-bg-secondary);
+    border:1px solid var(--color-border); border-radius:var(--radius);
+}
+
+/* Círculo */
+.scorecard-score {
+    display:flex; flex-direction:column; align-items:center; gap:8px; flex-shrink:0;
+}
+.score-ring { position:relative; width:110px; height:110px; }
+.score-svg  { width:100%; height:100%; transform:rotate(-90deg); }
+.score-inner {
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%); text-align:center;
+}
+.score-pct {
+    font-family:var(--font-code); font-size:1.5rem; font-weight:700;
+    color:var(--color-text); line-height:1;
+}
+.score-pct span { font-size:0.9rem; }
+.score-sublbl  {
+    font-size:0.62rem; color:var(--color-text-dim);
+    text-transform:uppercase; letter-spacing:0.08em;
+}
+.score-pts {
+    font-family:var(--font-code); font-size:0.85rem; font-weight:700; color:#a78bfa;
+}
+.score-pts span { color:var(--color-text-dim); font-weight:400; }
+
+/* KPIs */
+.scorecard-kpis {
+    display:flex; gap:8px; flex-wrap:wrap; flex:1; min-width:280px;
+}
+.sc-kpi {
+    flex:1; min-width:68px; padding:12px 10px;
+    background:var(--color-bg-tertiary); border:1px solid var(--color-border);
+    border-radius:var(--radius); text-align:center;
+}
+.sc-kpi-val {
+    font-family:var(--font-code); font-size:1.4rem; font-weight:700;
+    color:var(--color-text); line-height:1; margin-bottom:3px;
+}
+.sc-kpi-lbl {
+    font-size:0.6rem; font-weight:600; text-transform:uppercase;
+    letter-spacing:0.08em; color:var(--color-text-dim);
+}
+.sc-kpi-red    { border-color:rgba(220,53,69,0.25); }  .sc-kpi-red    .sc-kpi-val { color:#dc3545; }
+.sc-kpi-ok     { border-color:rgba(0,255,65,0.2); }    .sc-kpi-ok     .sc-kpi-val { color:var(--color-green); }
+.sc-kpi-canary { border-color:rgba(255,107,107,0.2); } .sc-kpi-canary .sc-kpi-val { color:#ff6b6b; }
+.sc-kpi-ai     { border-color:rgba(255,170,0,0.2); }   .sc-kpi-ai     .sc-kpi-val { color:#ffaa00; }
+
+/* Ranking position */
+.scorecard-rank {
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding:16px 24px; background:rgba(167,139,250,0.06);
+    border:1px solid rgba(167,139,250,0.2); border-radius:var(--radius); flex-shrink:0;
+}
+.rank-num   { font-family:var(--font-code); font-size:2rem; font-weight:700; color:#a78bfa; line-height:1; }
+.rank-lbl   { font-size:0.7rem; color:var(--color-text-dim); text-transform:uppercase; }
+.rank-total { font-size:0.65rem; color:var(--color-text-dim); }
+
+/* ── Filas tabla ── */
+.fila-vulnerable td:first-child { border-left:3px solid #dc3545; }
+.fila-segura     td:first-child { border-left:3px solid var(--color-green); }
+.fila-actual { background:rgba(167,139,250,0.06) !important; }
+
+/* ── Badges ── */
+.bm-id-badge {
+    font-family:var(--font-code); font-size:0.68rem; font-weight:700;
+    padding:2px 7px; border-radius:3px;
+    background:rgba(0,255,65,0.08); border:1px solid rgba(0,255,65,0.25);
+    color:var(--color-green);
+}
+.bm-id-badge-ai {
+    background:rgba(255,170,0,0.08); border-color:rgba(255,170,0,0.25); color:#ffaa00;
+}
+.rank-este-informe {
+    font-family:var(--font-code); font-size:0.6rem; color:#a78bfa;
+    padding:1px 5px; border:1px solid rgba(167,139,250,0.3); border-radius:3px;
+}
+</style>
+}
