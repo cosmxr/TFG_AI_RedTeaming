@@ -16,7 +16,6 @@ namespace TFG_Portal.Controllers
         private readonly IApiService _apiService;
         private readonly ILogger<DashboardController> _logger;
 
-        // Clave de sesión para el proyecto activo
         private const string SESSION_PROYECTO = "ProyectoActivoId";
 
         public DashboardController(
@@ -41,19 +40,15 @@ namespace TFG_Portal.Controllers
                 // --- Resolver proyecto activo ---
                 var todosProyectos = (await _dbService.GetAllProyectosAsync()).ToList();
 
-                // Si no hay proyectos, redirigir a crear el primero
                 if (!todosProyectos.Any())
                     return RedirectToAction("Crear", "Proyecto");
 
-                // Leer proyecto activo de la sesión, si no existe usar el primero
                 var proyectoActivoId = HttpContext.Session.GetInt32(SESSION_PROYECTO)
                     ?? todosProyectos.First().Id;
 
-                // Verificar que el proyecto de la sesión sigue existiendo
                 if (!todosProyectos.Any(p => p.Id == proyectoActivoId))
                     proyectoActivoId = todosProyectos.First().Id;
 
-                // Guardar en sesión
                 HttpContext.Session.SetInt32(SESSION_PROYECTO, proyectoActivoId);
 
                 var proyectoActivo = todosProyectos.First(p => p.Id == proyectoActivoId);
@@ -66,20 +61,27 @@ namespace TFG_Portal.Controllers
                 var taskAtaquesPorTipo = _dbService.GetAtaquesPorTipoAsync(proyectoActivoId);
                 var taskAtaquesPorDia = _dbService.GetAtaquesPorDiaAsync(proyectoActivoId);
                 var taskUltimasAuditorias = _dbService.GetUltimasAuditoriasAsync(proyectoActivoId, 5);
-                var taskApiActiva = _apiService.GetEstadoAsync();
+                var taskTotalCanary = _dbService.GetTotalCanaryDetectadoAsync(proyectoActivoId);
+                var taskAtaquesPorSev = _dbService.GetAtaquesPorSeveridadAsync(proyectoActivoId);
+                var taskApiActiva = _apiService.GetEstadoAsync(); // ← declarar antes del WhenAll
 
                 await Task.WhenAll(
                     taskTotalAuditorias, taskTotalAtaques, taskPorcentaje,
                     taskTiposDistintos, taskAtaquesPorTipo, taskAtaquesPorDia,
-                    taskUltimasAuditorias, taskApiActiva
+                    taskUltimasAuditorias, taskApiActiva,
+                    taskTotalCanary, taskAtaquesPorSev
                 );
 
                 // --- Serializar JSON para Chart.js ---
+                // jsonOptions debe declararse antes de usarse
                 var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = null };
+
                 var ataquesPorTipoJson = JsonSerializer.Serialize(
                     await taskAtaquesPorTipo, jsonOptions);
                 var ataquesPorDiaJson = JsonSerializer.Serialize(
                     await taskAtaquesPorDia, jsonOptions);
+                var ataquesPorSevJson = JsonSerializer.Serialize(  // ← una sola vez
+                    await taskAtaquesPorSev, jsonOptions);
 
                 var apiActiva = await taskApiActiva;
                 ViewData["ApiEstado"] = apiActiva;
@@ -94,9 +96,11 @@ namespace TFG_Portal.Controllers
                     TiposAtaqueDistintos = await taskTiposDistintos,
                     AtaquesPorTipoJson = ataquesPorTipoJson,
                     AtaquesPorDiaJson = ataquesPorDiaJson,
+                    AtaquesPorSeveridadJson = ataquesPorSevJson,
                     UltimasAuditorias = await taskUltimasAuditorias,
+                    TotalCanaryDetectado = await taskTotalCanary,
                     ApiActiva = apiActiva,
-                    FechaUltimaActualizacion = DateTime.Now
+                    FechaUltimaActualizacion = DateTime.Now,
                 };
 
                 _logger.LogInformation(
@@ -115,8 +119,7 @@ namespace TFG_Portal.Controllers
         }
 
         // ============================================================
-        // POST /Dashboard/CambiarProyecto — Cambia el proyecto activo
-        // Llamado desde el selector de la navbar/sidebar
+        // POST /Dashboard/CambiarProyecto
         // ============================================================
         [HttpPost]
         public IActionResult CambiarProyecto(int proyectoId)
@@ -127,7 +130,7 @@ namespace TFG_Portal.Controllers
         }
 
         // ============================================================
-        // GET /Dashboard/ApiEstado — Polling de estado de la API
+        // GET /Dashboard/ApiEstado — Polling de estado
         // ============================================================
         [HttpGet]
         public async Task<IActionResult> ApiEstado()

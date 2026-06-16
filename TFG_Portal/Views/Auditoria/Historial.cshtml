@@ -38,7 +38,7 @@
         <a asp-controller="Auditoria" asp-action="Benchmark" class="btn-redteam-secondary">
             <i class="fa-solid fa-flask"></i> Benchmark
         </a>
-        <a asp-controller="Auditoria" asp-action="Nueva" class="btn-redteam-primary">
+        <a asp-controller="Auditoria" asp-action="Nueva" class="btn-redteam-primary" style="display:none">
             <i class="fa-solid fa-crosshairs"></i> Nuevo Ataque
         </a>
     </div>
@@ -309,6 +309,30 @@ else
     padding: 4px 8px !important;
     display: inline-flex;
     align-items: center;
+}
+
+/* ── Empty State ── */
+.empty-state-redteam {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    text-align: center;
+    color: var(--color-text-dim);
+}
+
+.empty-state-redteam i {
+    color: var(--color-text-dim);
+    opacity: 0.4;
+    margin-bottom: 12px;
+}
+
+.empty-state-redteam p {
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.6;
 }
 </style>
 }

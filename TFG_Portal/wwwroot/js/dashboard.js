@@ -61,29 +61,33 @@
     };
 
     // -------------------------------------------------------
-    // GRÁFICO DE LÍNEA — Actividad últimos 7 días
+    // GRÁFICO DE LÍNEA — Actividad último mes
     // -------------------------------------------------------
     function initChartLinea() {
         const canvas = document.getElementById('chartLinea');
-        if (!canvas || datosPorDia.length === 0) return;
+        if (!canvas) return;
+
+        const serie30Dias = construirSerieUltimos30Dias(datosPorDia || []);
+        const labels = serie30Dias.map(d => d.label);
+        const valores = serie30Dias.map(d => d.total);
 
         new Chart(canvas, {
             type: 'line',
             data: {
-                labels: datosPorDia.map(d => d.Fecha),
+                labels,
                 datasets: [{
                     label: 'Ataques',
-                    data: datosPorDia.map(d => d.Total),
+                    data: valores,
                     borderColor: C.green,
                     backgroundColor: 'rgba(0, 255, 65, 0.08)',
                     borderWidth: 2,
                     pointBackgroundColor: C.green,
                     pointBorderColor: C.bg,
                     pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    tension: 0.4,
-                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    tension: 0.35,
+                    fill: true
                 }]
             },
             options: {
@@ -95,13 +99,19 @@
                     tooltip: {
                         ...tooltipDefaults,
                         callbacks: {
-                            title: items => 'Fecha: ' + items[0].label,
-                            label: item => ' ' + item.raw + ' ataques',
+                            title: items => 'Fecha: ' + serie30Dias[items[0].dataIndex].fechaCompleta,
+                            label: item => ' ' + item.raw + ' ataques'
                         }
                     }
                 },
                 scales: {
-                    x: { grid: { color: C.border }, ticks: { color: C.text } },
+                    x: {
+                        grid: { color: C.border },
+                        ticks: {
+                            color: C.text,
+                            maxTicksLimit: 6
+                        }
+                    },
                     y: {
                         beginAtZero: true,
                         grid: { color: C.border },
@@ -114,6 +124,50 @@
                 }
             }
         });
+    }
+
+    function construirSerieUltimos30Dias(datos) {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+
+        const mapa = new Map();
+
+        datos.forEach(d => {
+            const key = normalizarFechaKey(d.Fecha);
+            mapa.set(key, d.Total);
+        });
+
+        const serie = [];
+
+        for (let i = 29; i >= 0; i--) {
+            const fecha = new Date(hoy);
+            fecha.setDate(hoy.getDate() - i);
+
+            const key = normalizarFechaKey(fecha);
+            const total = mapa.get(key) ?? 0;
+
+            serie.push({
+                key,
+                total,
+                label: fecha.toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: '2-digit'
+                }),
+                fechaCompleta: fecha.toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                })
+            });
+        }
+
+        return serie;
+    }
+
+    function normalizarFechaKey(fecha) {
+        const d = new Date(fecha);
+        d.setHours(0, 0, 0, 0);
+        return d.toISOString().slice(0, 10);
     }
 
     // -------------------------------------------------------

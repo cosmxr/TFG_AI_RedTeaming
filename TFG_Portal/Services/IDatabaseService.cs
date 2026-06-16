@@ -43,5 +43,7 @@ namespace TFG_Portal.Services
         // ── Comparativa y ranking ────────────────────────────
         Task<IEnumerable<ComparativaModelos>> GetComparativaModelosAsync(int proyectoId);
         Task<IEnumerable<RobustezItem>> GetRankingRobustezAsync(int proyectoId);
+
+        Task<int> GetTotalCanaryDetectadoAsync(int proyectoId);
     }
 }

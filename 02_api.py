@@ -14,6 +14,8 @@ import re
 import time
 import pyodbc
 import httpx
+import logging
+import traceback
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -22,6 +24,18 @@ from pyrit.prompt_target import OpenAIChatTarget
 from pyrit.memory import CentralMemory, SQLiteMemory
 from pyrit.models import Message, MessagePiece
 import os
+
+# ── LOGGING ──────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+    datefmt="%H:%M:%S",
+    handlers=[
+        logging.StreamHandler(),                          # consola Docker
+        logging.FileHandler("/tmp/tfg_redteam.log"),      # fichero persistente
+    ]
+)
+log = logging.getLogger("tfg-api")
 
 CADENA_CONEXION = (
     "DRIVER={ODBC Driver 18 for SQL Server};"
@@ -704,20 +718,24 @@ def guardar_ataque(
     tipo_payload: str | None, justificacion: str | None,
     recomendacion: str | None, tiempo_respuesta: int | None,
     benchmark_id: str | None = None,
+    canary_detectado: bool = False,
 ):
-    cursor.execute(
+   cursor.execute(
         """INSERT INTO Ataques
            (auditoria_id, tipo_ataque, prompt_enviado, respuesta_ia,
-            fue_vulnerable, firewall_activo, severidad, tipo_payload,
-            justificacion, recomendacion, tiempo_respuesta, benchmark_id)
+            fue_vulnerable, firewall_activo, canary_detectado,
+            severidad, tipo_payload, justificacion, recomendacion,
+            tiempo_respuesta, benchmark_id)
            OUTPUT INSERTED.id
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         auditoria_id, tipo, prompt, respuesta,
         1 if vulnerable else 0, 0,
+        1 if canary_detectado else 0,   
         severidad, tipo_payload, justificacion,
         recomendacion, tiempo_respuesta, benchmark_id
     )
-    return cursor.fetchone()[0]
+
+   return cursor.fetchone()[0]
 
 
 def actualizar_comparativa(cursor, proyecto_id, modelo_auditado, resultados):
@@ -775,6 +793,14 @@ async def _ejecutar_ataque_individual(
     canary = caso["canary"]
     benchmark_id = caso["benchmark_id"]
 
+    log.info(f"[ATAQUE INICIO] tipo={tipo_upper} modelo={modelo_auditado} "
+             f"benchmark={benchmark_id} auditoria={auditoria_id}")
+    log.debug(f"[ATAQUE PROMPT] canary='{canary}' "
+              f"prompt_len={len(user_prompt)} chars")
+    log.debug(f"[ATAQUE TARGET URL] {OLLAMA_TARGET_URL}")
+
+    
+
     print(f"[AUDITADO][{tipo_upper}] Iniciando — modelo: {modelo_auditado} | benchmark: {benchmark_id} | canary: {canary}")
 
     target_auditado = OpenAIChatTarget(
@@ -786,7 +812,7 @@ async def _ejecutar_ataque_individual(
 )
     inicio = time.time() 
     # Enviar directamente con httpx, sin PyRIT para la llamada al target
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=300.0) as client:
         resp = await client.post(
             f"{OLLAMA_TARGET_URL}/v1/chat/completions",
             json={
@@ -798,6 +824,7 @@ async def _ejecutar_ataque_individual(
                 "max_tokens": 400,
                 "temperature": 0.7,
             }
+
         )
     datos = resp.json()
     texto_respuesta = datos["choices"][0]["message"]["content"]
@@ -811,12 +838,14 @@ async def _ejecutar_ataque_individual(
         tipo_upper, texto_respuesta, canary
     )
 
+    log.info(f"[JUEZ RESULTADO] tipo={tipo_upper} vulnerable={vulnerable} "
+                 f"canary={canary_det} severidad={severidad} payload={tipo_payload}")
     conn = pyodbc.connect(CADENA_CONEXION)
     cursor = conn.cursor()
     ataque_id = guardar_ataque(
         cursor, auditoria_id, tipo_upper, user_prompt, texto_respuesta,
         vulnerable, severidad, tipo_payload, justificacion,
-        recomendacion, tiempo_ms, benchmark_id
+        recomendacion, tiempo_ms, benchmark_id, canary_detectado=canary_det,
     )
     conn.commit()
     cursor.close()
@@ -923,7 +952,7 @@ def listar_benchmark():
             "categoria":    caso["categoria"],
             "severidad":    caso["severidad"],
             "owasp_ref":    caso["owasp_ref"],
-            "referencia":   caso["referencia"],
+            "referencia":   caso["referencia"]
         }
         for tipo, caso in BENCHMARK_SUITE.items()
     ]
@@ -969,7 +998,6 @@ async def atacar(solicitud: SolicitudAtaque):
 
 @app.post("/auditar/batch", response_model=ResultadoBatch)
 async def auditar_batch(solicitud: SolicitudBatch):
-    # Si no se especifican tipos, se lanzan los 10 del benchmark
     tipos = (
         [t.upper() for t in solicitud.tipos_ataque if t.upper() in BENCHMARK_SUITE]
         if solicitud.tipos_ataque
@@ -994,15 +1022,6 @@ async def auditar_batch(solicitud: SolicitudBatch):
         conn.close()
 
         inicio_batch = time.time()
-        tareas = [
-            _ejecutar_ataque_individual(
-                auditoria_id=auditoria_id,
-                tipo_ataque=tipo,
-                modelo_auditado=modelo,
-                prompt_personalizado=(solicitud.prompts_personalizados or {}).get(tipo),
-            )
-            for tipo in tipos
-        ]
         raw = []
         for tipo in tipos:
             try:
@@ -1014,16 +1033,11 @@ async def auditar_batch(solicitud: SolicitudBatch):
                 )
                 raw.append(r)
             except Exception as e:
+                print(f"[BATCH] Error en {tipo}: {e}")
                 raw.append(e)
-                tiempo_total_ms = int((time.time() - inicio_batch) * 1000)
 
-                resultados: list[ResultadoAtaque] = []
-                for r in raw:
-                    if isinstance(r, Exception):
-                        # el tipo ya está capturado dentro del ResultadoAtaque o en el except
-                        print(f"[BATCH] Error: {r}")
-                    else:
-                     resultados.append(r)
+        tiempo_total_ms = int((time.time() - inicio_batch) * 1000)
+        resultados: list[ResultadoAtaque] = [r for r in raw if isinstance(r, ResultadoAtaque)]
 
         conn   = pyodbc.connect(CADENA_CONEXION)
         cursor = conn.cursor()
@@ -1469,6 +1483,24 @@ def metricas_ranking(
 
 # ── 7. EXPORTAR CSV ──────────────────────────────────────────
 
+# ── Constante de conexión con timeout (añadir junto a CADENA_CONEXION) ──
+# El parámetro "Connection Timeout" controla cuánto espera para conectar.
+# Para limitar el tiempo de ejecución de queries largas, usamos
+# el cursor con timeout explícito vía SET QUERY_GOVERNOR_COST_LIMIT
+# o simplemente añadimos TOP N a las queries de exportación.
+ 
+CADENA_CONEXION_EXPORT = (
+    "DRIVER={ODBC Driver 18 for SQL Server};"
+    f"SERVER={os.getenv('DB_SERVER', 'sqlserver')};"
+    f"DATABASE={os.getenv('DB_NAME', 'TFG_RedTeaming')};"
+    f"UID={os.getenv('DB_USER', 'sa')};"
+    f"PWD={os.getenv('DB_PASSWORD', 'TFGRedTeam2024')};"
+    "TrustServerCertificate=yes;"
+    "MultipleActiveResultSets=True;"
+    "Connection Timeout=30;"   # timeout de conexión en segundos
+)
+ 
+# ── Endpoint corregido ───────────────────────────────────────
 @app.get("/metricas/exportar")
 def metricas_exportar(
     formato:     str        = Query("csv"),
@@ -1477,19 +1509,25 @@ def metricas_exportar(
     desde:       str | None = Query(None),
     hasta:       str | None = Query(None),
     proyecto_id: int | None = Query(None),
+    limite:      int        = Query(5000, description="Máximo de filas raw (0 = sin límite)"),
 ):
     if formato.lower() != "csv":
         raise HTTPException(400, "Formato soportado: csv")
-
+ 
     conds, params = _construir_filtros(modelo, tipo_ataque, desde, hasta, proyecto_id)
     where = _where(conds)
-
+ 
+    # Cláusula TOP para evitar queries que bloqueen minutos
+    top_clause = f"TOP ({limite})" if limite > 0 else ""
+ 
     try:
-        conn   = pyodbc.connect(CADENA_CONEXION)
+        # Usar la cadena con Connection Timeout=30
+        conn   = pyodbc.connect(CADENA_CONEXION_EXPORT)
         cursor = conn.cursor()
-
+ 
+        # Query raw con límite de filas
         cursor.execute(f"""
-            SELECT
+            SELECT {top_clause}
                 a.id, au.id, au.proyecto_id, au.modelo_ia,
                 a.tipo_ataque, a.benchmark_id,
                 a.prompt_enviado, a.respuesta_ia,
@@ -1503,7 +1541,8 @@ def metricas_exportar(
             ORDER BY a.fecha DESC
         """, *params)
         raw_filas = cursor.fetchall()
-
+ 
+        # Query agregada (no necesita límite, son pocas filas por definición)
         cursor.execute(f"""
             SELECT
                 au.modelo_ia, a.tipo_ataque,
@@ -1524,10 +1563,16 @@ def metricas_exportar(
         """, *params)
         agg_filas = cursor.fetchall()
         cursor.close(); conn.close()
-
+ 
         output = io.StringIO()
         writer = csv.writer(output, delimiter=';')
-
+ 
+        # Cabecera con metadatos del export
+        writer.writerow([f"# Exportado: {time.strftime('%Y-%m-%d %H:%M:%S')}"])
+        if limite > 0 and len(raw_filas) == limite:
+            writer.writerow([f"# AVISO: resultado truncado a {limite} filas. "
+                              f"Usa ?limite=0 para exportar todo."])
+ 
         writer.writerow(["=" * 80])
         writer.writerow(["SECCIÓN 1: DATOS RAW"])
         writer.writerow(["=" * 80])
@@ -1550,7 +1595,7 @@ def metricas_exportar(
                 f[12] or "", f[13] or "",
                 f[14] or "", str(f[15])
             ])
-
+ 
         writer.writerow([])
         writer.writerow(["=" * 80])
         writer.writerow(["SECCIÓN 2: MÉTRICAS AGREGADAS"])
@@ -1569,7 +1614,7 @@ def metricas_exportar(
                 f[2], f[3] or 0, f[4] or 0.0, f[5] or 0,
                 f[6], f[7], f[8], f[9], f[10], f[11]
             ])
-
+ 
         output.seek(0)
         nombre = f"benchmark_red_teaming_{time.strftime('%Y%m%d_%H%M%S')}.csv"
         return StreamingResponse(
@@ -1577,6 +1622,7 @@ def metricas_exportar(
             media_type="text/csv; charset=utf-8",
             headers={"Content-Disposition": f"attachment; filename={nombre}"}
         )
-
+ 
     except Exception as e:
+        log.error(f"Error en /metricas/exportar: {e}")
         raise HTTPException(500, str(e))

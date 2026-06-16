@@ -625,5 +625,30 @@ namespace TFG_Portal.Services
                 return Enumerable.Empty<RobustezItem>();
             }
         }
+        // ────────────────────────────────────────────────────────
+        // CANARY — total de detecciones por proyecto
+        // ────────────────────────────────────────────────────────
+
+        public async Task<int> GetTotalCanaryDetectadoAsync(int proyectoId)
+        {
+            try
+            {
+                using var conn = new SqlConnection(_connectionString);
+                const string sql = @"
+                    SELECT COUNT(*)
+                    FROM   Ataques at
+                    INNER JOIN Auditorias a ON a.id = at.auditoria_id
+                    WHERE  a.proyecto_id    = @ProyectoId
+                      AND  at.canary_detectado = 1";
+
+                return await conn.QuerySingleOrDefaultAsync<int>(
+                    sql, new { ProyectoId = proyectoId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener total canary detectado");
+                return 0;
+            }
+        }
     }
 }

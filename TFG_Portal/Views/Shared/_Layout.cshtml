@@ -158,11 +158,7 @@
                     <span class="sidebar-nav-badge sidebar-nav-badge-purple">10</span>
                 </a>
 
-                <a class="sidebar-nav-link @(IsActive("Auditoria","Nueva") ? "active" : "")"
-                   asp-controller="Auditoria" asp-action="Nueva">
-                    <i class="fa-solid fa-crosshairs"></i>
-                    <span>Nuevo Ataque</span>
-                </a>
+                
 
                 <a class="sidebar-nav-link @(IsActive("Auditoria","Historial") ? "active" : "")"
                    asp-controller="Auditoria" asp-action="Historial">
@@ -187,12 +183,6 @@
                    asp-controller="Metricas" asp-action="Ranking">
                     <i class="fa-solid fa-trophy"></i>
                     <span>Ranking Robustez</span>
-                </a>
-
-                <a class="sidebar-nav-link @(IsActive("Metricas","Evolucion") ? "active" : "")"
-                   asp-controller="Metricas" asp-action="Evolucion">
-                    <i class="fa-solid fa-chart-line"></i>
-                    <span>Evolución</span>
                 </a>
 
                 <a class="sidebar-nav-link @(IsActive("Metricas","Exportar") ? "active" : "")"

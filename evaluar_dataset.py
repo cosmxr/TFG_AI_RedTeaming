@@ -81,7 +81,7 @@ async def ejecutar_ataque(
         respuesta = await cliente.post(
             f"{API_URL}/atacar",
             json=payload,
-            timeout=600.0  # 10 minutos para modelos lentos
+            timeout=1200.0  # 20m para modelos lentos
         )
         if respuesta.status_code == 200:
             return respuesta.json()

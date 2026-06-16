@@ -20,7 +20,7 @@ namespace TFG_Portal.Services
         // Benchmark completo: 10 ataques × ~1 min/ataque + margen
         private static readonly TimeSpan TimeoutBatch = TimeSpan.FromMinutes(35);
         // Ataque individual: 1 ejecución + evaluación del juez
-        private static readonly TimeSpan TimeoutAtaque = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan TimeoutAtaque = TimeSpan.FromMinutes(10);
 
         // Fallback si la API no está disponible
         private static readonly TiposAtaqueResponse _fallback = new()
