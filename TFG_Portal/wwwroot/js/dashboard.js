@@ -1,32 +1,52 @@
 // ============================================================
 // dashboard.js — Gráficos Chart.js del Dashboard
 // AI Red Teaming Platform - TFG Ingeniería Informática
-//
-// Lee los datos JSON embebidos por el servidor en la vista
-// y construye los gráficos con la paleta visual del portal.
 // ============================================================
 
 (function () {
     'use strict';
 
+    // -------------------------------------------------------
     // Paleta — consistente con redteam.css
+    // -------------------------------------------------------
     const C = {
         green: '#00ff41',
-        red: '#ff4444',
+        red: '#dc3545',
         yellow: '#ffaa00',
         blue: '#4488ff',
-        purple: '#aa44ff',
+        purple: '#a78bfa',
         cyan: '#00ccff',
-        text: '#888888',
-        border: '#2e2e2e',
+        text: '#666d76',
+        border: 'rgba(255,255,255,0.06)',
         bg: '#1a1a1a',
     };
 
-    // Colores para las barras (uno por tipo de ataque, cíclico)
-    const BAR_COLORS = [C.green, C.red, C.yellow, C.blue, C.purple, C.cyan];
+    const AI_TYPES = new Set([
+        'PROMPT_INJECTION', 'JAILBREAK', 'SYSTEM_PROMPT_LEAKAGE',
+        'DATA_EXTRACTION', 'CONTEXT_MANIPULATION', 'INDIRECT_INJECTION',
+    ]);
+
+    const LABEL_MAP = {
+        PROMPT_INJECTION: 'PI',
+        JAILBREAK: 'JB',
+        SYSTEM_PROMPT_LEAKAGE: 'SPL',
+        DATA_EXTRACTION: 'DE',
+        CONTEXT_MANIPULATION: 'CM',
+        INDIRECT_INJECTION: 'II',
+        XSS: 'XSS',
+        SQLI: 'SQLi',
+        LFI: 'LFI',
+        CSRF: 'CSRF',
+    };
+
+    const SEV_COLORS = {
+        Alta: C.red,
+        Media: C.yellow,
+        Baja: C.blue,
+    };
 
     // -------------------------------------------------------
-    // Configuración global de Chart.js — tema oscuro
+    // Configuración global Chart.js — tema oscuro
     // -------------------------------------------------------
     Chart.defaults.color = C.text;
     Chart.defaults.borderColor = C.border;
@@ -35,23 +55,24 @@
     Chart.defaults.font.size = 11;
 
     // -------------------------------------------------------
-    // Leer datos JSON embebidos en la vista
-    // Se usa <script type="application/json"> para evitar XSS
+    // Helpers
     // -------------------------------------------------------
-    function leerJson(id) {
+    function readJson(id) {
         const el = document.getElementById(id);
         if (!el) return [];
         try { return JSON.parse(el.textContent.trim()); }
-        catch (e) { console.warn('[dashboard.js] Error JSON en', id, e); return []; }
+        catch (e) { console.warn('[dashboard.js] JSON inválido en #' + id, e); return []; }
     }
 
-    const datosPorTipo = leerJson('data-ataques-por-tipo');
-    const datosPorDia = leerJson('data-ataques-por-dia');
+    function destroyIfExists(canvasId) {
+        const el = document.getElementById(canvasId);
+        if (!el) return null;
+        const prev = Chart.getChart(el);
+        if (prev) prev.destroy();
+        return el;
+    }
 
-    // -------------------------------------------------------
-    // Configuración compartida de tooltips
-    // -------------------------------------------------------
-    const tooltipDefaults = {
+    const TOOLTIP = {
         backgroundColor: '#1a1a1a',
         borderColor: C.border,
         borderWidth: 1,
@@ -61,15 +82,57 @@
     };
 
     // -------------------------------------------------------
-    // GRÁFICO DE LÍNEA — Actividad último mes
+    // Datos (leídos una sola vez)
+    // -------------------------------------------------------
+    const dataDia = readJson('data-ataques-por-dia');
+    const dataTipo = readJson('data-ataques-por-tipo');
+    const dataSev = readJson('data-ataques-por-severidad');
+
+    // -------------------------------------------------------
+    // GRÁFICO DE LÍNEA — Actividad último mes (con relleno de días vacíos)
     // -------------------------------------------------------
     function initChartLinea() {
-        const canvas = document.getElementById('chartLinea');
-        if (!canvas) return;
+        const canvas = destroyIfExists('chartLinea');
+        if (!canvas || dataDia.length === 0) return;
 
-        const serie30Dias = construirSerieUltimos30Dias(datosPorDia || []);
-        const labels = serie30Dias.map(d => d.label);
-        const valores = serie30Dias.map(d => d.total);
+        // Formatear Date → "dd/MM" con padding garantizado (sin depender de locale)
+        function formatFecha(date) {
+            const d = String(date.getDate()).padStart(2, '0');
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            return `${d}/${m}`;
+        }
+
+        // Parsear "dd/MM" → Date (año actual)
+        function parseFecha(ddMM) {
+            const [d, m] = ddMM.split('/').map(Number);
+            return new Date(new Date().getFullYear(), m - 1, d);
+        }
+
+        // Normalizar claves del backend (por si vienen sin padding: "9/6" → "09/06")
+        const dataMap = new Map(
+            dataDia.map(d => {
+                const [dd, mm] = d.Fecha.split('/');
+                const key = dd.padStart(2, '0') + '/' + mm.padStart(2, '0');
+                return [key, d.Total];
+            })
+        );
+
+        // Rango: fecha más antigua del dataset → hoy
+        const fechasOrdenadas = dataDia
+            .map(d => parseFecha(formatFecha(parseFecha(d.Fecha)))) // normaliza antes de comparar
+            .sort((a, b) => a - b);
+
+        const inicio = fechasOrdenadas[0];
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+
+        const labels = [];
+        const valores = [];
+
+        for (let cur = new Date(inicio); cur <= hoy; cur.setDate(cur.getDate() + 1)) {
+            const key = formatFecha(cur);
+            labels.push(key);
+            valores.push(dataMap.get(key) ?? 0);
+        }
 
         new Chart(canvas, {
             type: 'line',
@@ -79,16 +142,16 @@
                     label: 'Ataques',
                     data: valores,
                     borderColor: C.green,
-                    backgroundColor: 'rgba(0, 255, 65, 0.08)',
+                    backgroundColor: 'rgba(0,255,65,0.08)',
                     borderWidth: 2,
                     pointBackgroundColor: C.green,
                     pointBorderColor: C.bg,
                     pointBorderWidth: 2,
-                    pointRadius: 4,
+                    pointRadius: ctx => valores[ctx.dataIndex] > 0 ? 4 : 0,
                     pointHoverRadius: 6,
-                    tension: 0.35,
-                    fill: true
-                }]
+                    tension: 0.4,
+                    fill: true,
+                }],
             },
             options: {
                 responsive: true,
@@ -97,20 +160,22 @@
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        ...tooltipDefaults,
+                        ...TOOLTIP,
+                        filter: item => item.raw > 0,
                         callbacks: {
-                            title: items => 'Fecha: ' + serie30Dias[items[0].dataIndex].fechaCompleta,
-                            label: item => ' ' + item.raw + ' ataques'
-                        }
-                    }
+                            title: items => 'Fecha: ' + items[0].label,
+                            label: item => ' ' + item.raw + ' ataques',
+                        },
+                    },
                 },
                 scales: {
                     x: {
                         grid: { color: C.border },
                         ticks: {
                             color: C.text,
-                            maxTicksLimit: 6
-                        }
+                            maxTicksLimit: 15,
+                            maxRotation: 0,
+                        },
                     },
                     y: {
                         beginAtZero: true,
@@ -118,80 +183,38 @@
                         ticks: {
                             color: C.text,
                             stepSize: 1,
-                            callback: v => Number.isInteger(v) ? v : null
-                        }
-                    }
-                }
-            }
+                            callback: v => Number.isInteger(v) ? v : null,
+                        },
+                    },
+                },
+            },
         });
-    }
-
-    function construirSerieUltimos30Dias(datos) {
-        const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0);
-
-        const mapa = new Map();
-
-        datos.forEach(d => {
-            const key = normalizarFechaKey(d.Fecha);
-            mapa.set(key, d.Total);
-        });
-
-        const serie = [];
-
-        for (let i = 29; i >= 0; i--) {
-            const fecha = new Date(hoy);
-            fecha.setDate(hoy.getDate() - i);
-
-            const key = normalizarFechaKey(fecha);
-            const total = mapa.get(key) ?? 0;
-
-            serie.push({
-                key,
-                total,
-                label: fecha.toLocaleDateString('es-ES', {
-                    day: '2-digit',
-                    month: '2-digit'
-                }),
-                fechaCompleta: fecha.toLocaleDateString('es-ES', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric'
-                })
-            });
-        }
-
-        return serie;
-    }
-
-    function normalizarFechaKey(fecha) {
-        const d = new Date(fecha);
-        d.setHours(0, 0, 0, 0);
-        return d.toISOString().slice(0, 10);
     }
 
     // -------------------------------------------------------
     // GRÁFICO DE BARRAS — Ataques por tipo
     // -------------------------------------------------------
     function initChartBarras() {
-        const canvas = document.getElementById('chartBarras');
-        if (!canvas || datosPorTipo.length === 0) return;
+        const canvas = destroyIfExists('chartBarras');
+        if (!canvas || dataTipo.length === 0) return;
 
-        const colores = datosPorTipo.map((_, i) => BAR_COLORS[i % BAR_COLORS.length]);
+        const colores = dataTipo.map(d =>
+            AI_TYPES.has(d.TipoAtaque) ? C.yellow : C.green
+        );
 
         new Chart(canvas, {
             type: 'bar',
             data: {
-                labels: datosPorTipo.map(d => d.TipoAtaque),
+                labels: dataTipo.map(d => LABEL_MAP[d.TipoAtaque] || d.TipoAtaque),
                 datasets: [{
                     label: 'Ataques',
-                    data: datosPorTipo.map(d => d.Total),
-                    backgroundColor: colores.map(c => c + '33'), // 20% opacidad
+                    data: dataTipo.map(d => d.Total),
+                    backgroundColor: colores.map(c => c + '33'),
                     borderColor: colores,
                     borderWidth: 1,
                     borderRadius: 3,
                     borderSkipped: false,
-                }]
+                }],
             },
             options: {
                 responsive: true,
@@ -199,14 +222,16 @@
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        ...tooltipDefaults,
-                        callbacks: { label: item => ' ' + item.raw + ' ataques' }
-                    }
+                        ...TOOLTIP,
+                        callbacks: {
+                            label: item => ' ' + item.raw + ' ataques',
+                        },
+                    },
                 },
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: { color: C.text }
+                        ticks: { color: C.text },
                     },
                     y: {
                         beginAtZero: true,
@@ -214,20 +239,71 @@
                         ticks: {
                             color: C.text,
                             stepSize: 1,
-                            callback: v => Number.isInteger(v) ? v : null
-                        }
-                    }
-                }
-            }
+                            callback: v => Number.isInteger(v) ? v : null,
+                        },
+                    },
+                },
+            },
         });
     }
 
     // -------------------------------------------------------
-    // Init al cargar el DOM
+    // GRÁFICO DONUT — Distribución de severidad
+    // -------------------------------------------------------
+    function initChartDonut() {
+        const canvas = destroyIfExists('chartDonut');
+        if (!canvas || dataSev.length === 0) return;
+
+        const colors = dataSev.map(d => SEV_COLORS[d.Severidad] || '#888888');
+
+        new Chart(canvas, {
+            type: 'doughnut',
+            data: {
+                labels: dataSev.map(d => d.Severidad),
+                datasets: [{
+                    data: dataSev.map(d => d.Total),
+                    backgroundColor: colors.map(c => c + '33'),
+                    borderColor: colors,
+                    borderWidth: 2,
+                    hoverOffset: 6,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        ...TOOLTIP,
+                        callbacks: {
+                            label: ctx => ` ${ctx.label}: ${ctx.parsed}`,
+                        },
+                    },
+                },
+            },
+        });
+
+        const legend = document.getElementById('legend-donut');
+        if (!legend) return;
+        legend.innerHTML = '';
+        dataSev.forEach((d, i) => {
+            const item = document.createElement('div');
+            item.className = 'donut-legend-item';
+            item.innerHTML =
+                `<span class="donut-legend-dot" style="background:${colors[i]};"></span>` +
+                `<span>${d.Severidad}: <strong>${d.Total}</strong></span>`;
+            legend.appendChild(item);
+        });
+    }
+
+    // -------------------------------------------------------
+    // Init
     // -------------------------------------------------------
     document.addEventListener('DOMContentLoaded', function () {
         initChartLinea();
         initChartBarras();
+        initChartDonut();
     });
 
-})();
+}());

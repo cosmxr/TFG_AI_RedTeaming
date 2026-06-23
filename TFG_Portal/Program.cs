@@ -28,7 +28,7 @@ builder.Services.AddHttpClient("FastAPI", client =>
     // 40 min > 35 min (TimeoutBatch) > 10 min (TimeoutAtaque)
     // Sin este margen, HttpClient cancela ANTES que el CTS interno
     // y se recibe OperationCanceledException en lugar del timeout real.
-    client.Timeout = TimeSpan.FromMinutes(40);
+    client.Timeout = TimeSpan.FromMinutes(60);
 
     client.DefaultRequestHeaders.Add("Accept", "application/json");
 });

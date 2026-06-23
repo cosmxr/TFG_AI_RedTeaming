@@ -110,7 +110,7 @@
                     Audita el modelo seleccionado con los
                     <strong style="color:var(--color-text);">10 casos del benchmark TFG</strong>
                     en paralelo. Genera automáticamente el score de robustez
-                    (0–18 pts) y detecta vulnerabilidades por canary token.
+                    (0–19 pts) y detecta vulnerabilidades por canary token.
                 </p>
                 <div class="benchmark-cats">
                     <span class="cat-pill cat-clasico">
@@ -158,58 +158,6 @@
                 <div style="position:relative; height:210px; padding:12px 4px 4px;">
                     <canvas id="chartLinea"></canvas>
                 </div>
-            }
-        </div>
-    </div>
-</div>
-
-@* ── Gráficos por tipo y por severidad ── *@
-<div class="row g-3 mb-4">
-    <div class="col-xl-6">
-        <div class="card-redteam h-100">
-            <div class="card-redteam-header">
-                <span class="card-redteam-title">
-                    <i class="fa-solid fa-chart-bar me-2"></i>
-                    Ataques por tipo
-                </span>
-            </div>
-            @if (Model.AtaquesPorTipoJson == "[]")
-            {
-                <div class="empty-state-redteam" style="min-height:200px;">
-                    <i class="fa-solid fa-chart-bar fa-2x mb-3"></i>
-                    <p>No hay ataques registrados</p>
-                </div>
-            }
-            else
-            {
-                <div style="position:relative; height:220px; padding:12px 4px 4px;">
-                    <canvas id="chartBarras"></canvas>
-                </div>
-            }
-        </div>
-    </div>
-
-    <div class="col-xl-6">
-        <div class="card-redteam h-100">
-            <div class="card-redteam-header">
-                <span class="card-redteam-title">
-                    <i class="fa-solid fa-chart-pie me-2"></i>
-                    Distribución de severidad
-                </span>
-            </div>
-            @if (Model.AtaquesPorSeveridadJson == "[]")
-            {
-                <div class="empty-state-redteam" style="min-height:200px;">
-                    <i class="fa-solid fa-chart-pie fa-2x mb-3"></i>
-                    <p>Sin vulnerabilidades registradas</p>
-                </div>
-            }
-            else
-            {
-                <div style="position:relative; height:180px; padding:12px 4px 4px;">
-                    <canvas id="chartDonut"></canvas>
-                </div>
-                <div id="legend-donut" class="donut-legend"></div>
             }
         </div>
     </div>
@@ -325,8 +273,12 @@
 .proyecto-banner-actions { margin-left: auto; display: flex; gap: 8px; }
 
 /* ── KPI extra: canary ── */
-.kpi-canary { border-color: rgba(220,53,69,0.25) !important; }
-.kpi-canary .kpi-icon, .kpi-canary .kpi-value { color: #ff6b6b !important; }
+.kpi-canary {
+    border-top-color: rgba(255, 107, 107, 0.5) !important;
+    border-color: rgba(220, 53, 69, 0.25) !important;
+}
+.kpi-canary .kpi-icon,
+.kpi-canary .kpi-value { color: #ff6b6b !important; }
 
 /* ── Benchmark launch card ── */
 .benchmark-launch-card {
@@ -396,150 +348,55 @@
     margin: 0;
     line-height: 1.6;
 }
+/* ── KPI grid: 5 columnas en la misma línea ── */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+}
+
+.card-kpi {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 12px;
+    text-align: center;
+    min-width: 0;
+}
+
+.kpi-icon {
+    font-size: 1.5rem;
+    margin-bottom: 12px;
+    opacity: 0.75;
+}
+
+.kpi-value {
+    font-family: var(--font-code);
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 8px;
+    white-space: nowrap;
+}
+
+.kpi-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-dim);
+    white-space: nowrap;
+}
 </style>
 }
+@* ── Data para Chart.js (sin cambios) ── *@
+<script id="data-ataques-por-tipo"      type="application/json">@Html.Raw(Model.AtaquesPorTipoJson)</script>
+<script id="data-ataques-por-dia"       type="application/json">@Html.Raw(Model.AtaquesPorDiaJson)</script>
+<script id="data-ataques-por-severidad" type="application/json">@Html.Raw(Model.AtaquesPorSeveridadJson)</script>
 
 @section Scripts {
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-<script>
-(function () {
-    const isDark  = true;
-    const gridCol = 'rgba(255,255,255,0.06)';
-    const textCol = '#666d76';
-    const green   = '#00ff41';
-    const red     = '#dc3545';
-    const yellow  = '#ffaa00';
-    const purple  = '#a78bfa';
-    const blue    = '#4488ff';
-
-    Chart.defaults.color = textCol;
-    Chart.defaults.font.family = "'JetBrains Mono', monospace";
-    Chart.defaults.font.size   = 11;
-
-    // ── Gráfico de línea (actividad 7 días) ──────────────────
-    const dataDia = JSON.parse(
-        document.getElementById('data-ataques-por-dia')?.textContent || '[]');
-
-    if (dataDia.length > 0 && document.getElementById('chartLinea')) {
-        new Chart(document.getElementById('chartLinea'), {
-            type: 'line',
-            data: {
-                labels: dataDia.map(d => d.Fecha),
-                datasets: [{
-                    label: 'Ataques',
-                    data: dataDia.map(d => d.Total),
-                    borderColor: green,
-                    backgroundColor: 'rgba(0,255,65,0.08)',
-                    borderWidth: 2,
-                    pointBackgroundColor: green,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    fill: true,
-                    tension: 0.4,
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { color: gridCol }, ticks: { color: textCol } },
-                    y: {
-                        grid: { color: gridCol }, ticks: { color: textCol, stepSize: 1 },
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-    }
-
-    // ── Gráfico de barras (ataques por tipo) ─────────────────
-    const dataTipo = JSON.parse(
-        document.getElementById('data-ataques-por-tipo')?.textContent || '[]');
-
-    if (dataTipo.length > 0 && document.getElementById('chartBarras')) {
-        const aiTypes = ['PROMPT_INJECTION','JAILBREAK','SYSTEM_PROMPT_LEAKAGE',
-                         'DATA_EXTRACTION','CONTEXT_MANIPULATION','INDIRECT_INJECTION'];
-        const colores = dataTipo.map(d =>
-            aiTypes.includes(d.TipoAtaque) ? yellow : green);
-
-        new Chart(document.getElementById('chartBarras'), {
-            type: 'bar',
-            data: {
-                labels: dataTipo.map(d => {
-                    const m = {
-                        PROMPT_INJECTION:'PI',JAILBREAK:'JB',SYSTEM_PROMPT_LEAKAGE:'SPL',
-                        DATA_EXTRACTION:'DE',CONTEXT_MANIPULATION:'CM',INDIRECT_INJECTION:'II',
-                        XSS:'XSS',SQLI:'SQLi',LFI:'LFI',CSRF:'CSRF'
-                    };
-                    return m[d.TipoAtaque] || d.TipoAtaque;
-                }),
-                datasets: [{
-                    label: 'Ataques',
-                    data: dataTipo.map(d => d.Total),
-                    backgroundColor: colores.map(c => c + '33'),
-                    borderColor: colores,
-                    borderWidth: 1,
-                    borderRadius: 3,
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { color: gridCol }, ticks: { color: textCol } },
-                    y: { grid: { color: gridCol }, ticks: { color: textCol, stepSize: 1 }, beginAtZero: true }
-                }
-            }
-        });
-    }
-
-    // ── Gráfico donut (severidad) ─────────────────────────────
-    const dataSev = JSON.parse(
-        document.getElementById('data-ataques-por-severidad')?.textContent || '[]');
-
-    if (dataSev.length > 0 && document.getElementById('chartDonut')) {
-        const coloresSev = { Alta: red, Media: yellow, Baja: blue };
-        const colors = dataSev.map(d => coloresSev[d.Severidad] || '#888');
-
-        new Chart(document.getElementById('chartDonut'), {
-            type: 'doughnut',
-            data: {
-                labels: dataSev.map(d => d.Severidad),
-                datasets: [{
-                    data: dataSev.map(d => d.Total),
-                    backgroundColor: colors.map(c => c + '33'),
-                    borderColor: colors,
-                    borderWidth: 2,
-                    hoverOffset: 6,
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                cutout: '65%',
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: ctx => ` ${ctx.label}: ${ctx.parsed}`
-                        }
-                    }
-                }
-            }
-        });
-
-        // Leyenda manual
-        const legend = document.getElementById('legend-donut');
-        if (legend) {
-            dataSev.forEach((d, i) => {
-                const item = document.createElement('div');
-                item.className = 'donut-legend-item';
-                item.innerHTML =
-                    `<span class="donut-legend-dot" style="background:${colors[i]};"></span>
-                     <span>${d.Severidad}: <strong>${d.Total}</strong></span>`;
-                legend.appendChild(item);
-            });
-        }
-    }
-}());
-</script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script src="~/js/dashboard.js"></script>
 }
+
+

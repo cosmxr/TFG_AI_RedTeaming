@@ -391,6 +391,19 @@ a {
     color: var(--color-yellow);
     opacity: 0.15;
 }
+/* KPI canary (rojo suave) */
+.card-kpi.kpi-canary .kpi-value {
+    color: #ff6b6b;
+    text-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+}
+
+.card-kpi.kpi-canary::before {
+    background: linear-gradient(90deg, #ff6b6b, transparent);
+}
+
+.card-kpi.kpi-canary .kpi-icon {
+    color: #ff6b6b;
+}
 
 
 /* ============================================================
@@ -398,7 +411,7 @@ a {
    ============================================================ */
 .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 16px;
 }
 
@@ -1132,9 +1145,8 @@ textarea.input-redteam {
 /* ---- Nuevo proyecto link ---- */
 .sidebar-nav-new {
     margin-top: 4px;
-    color: var(--color-text-dim) !important;
+    color: var(--color-text-muted) !important;
     font-size: 0.78rem;
-    border-style: dashed;
     border-left: 2px dashed transparent;
 }
 

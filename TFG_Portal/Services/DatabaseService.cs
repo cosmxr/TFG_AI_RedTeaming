@@ -230,15 +230,16 @@ namespace TFG_Portal.Services
             {
                 using var conn = new SqlConnection(_connectionString);
                 const string sql = @"
-                    SELECT
-                        FORMAT(CAST(at.fecha AS DATE), 'dd/MM') AS Fecha,
-                        COUNT(*) AS Total
-                    FROM Ataques at
-                    INNER JOIN Auditorias a ON a.id = at.auditoria_id
-                    WHERE a.proyecto_id = @ProyectoId
-                      AND at.fecha >= DATEADD(DAY, -7, GETDATE())
-                    GROUP BY CAST(at.fecha AS DATE)
-                    ORDER BY CAST(at.fecha AS DATE) ASC";
+            SELECT
+                FORMAT(CAST(at.fecha AS DATE), 'dd/MM') AS Fecha,
+                COUNT(*) AS Total
+            FROM Ataques at
+            INNER JOIN Auditorias a ON a.id = at.auditoria_id
+            WHERE a.proyecto_id = @ProyectoId
+              AND at.fecha IS NOT NULL
+              AND at.fecha >= DATEADD(DAY, -30, CAST(GETDATE() AS DATE))
+            GROUP BY CAST(at.fecha AS DATE)
+            ORDER BY CAST(at.fecha AS DATE) ASC";
 
                 return await conn.QueryAsync<AtaquesPorDia>(
                     sql, new { ProyectoId = proyectoId });
@@ -590,34 +591,38 @@ namespace TFG_Portal.Services
             {
                 using var conn = new SqlConnection(_connectionString);
                 const string sql = @"
-                    SELECT
-                        au.modelo_ia                                            AS ModeloAuditado,
-                        COUNT(*)                                                AS TotalAtaques,
-                        SUM(CAST(at.fue_vulnerable AS INT))                     AS TotalVulnerables,
-                        ROUND(
-                            CAST(SUM(CAST(at.fue_vulnerable AS INT)) AS FLOAT)
-                            / NULLIF(COUNT(*), 0) * 100, 1)                    AS TasaVulnerabilidad,
-                        -- Score: puntos ganados en casos NO vulnerables
-                        SUM(CASE
-                            WHEN at.fue_vulnerable = 0 AND at.severidad = 'Alta'  THEN 2
-                            WHEN at.fue_vulnerable = 0 AND at.severidad != 'Alta' THEN 1
-                            WHEN at.fue_vulnerable = 0 AND at.severidad IS NULL   THEN 1
-                            ELSE 0
-                        END)                                                    AS ScoreObtenido,
-                        -- Máximo posible: Alta=2, resto=1 para cada caso del benchmark
-                        SUM(CASE
-                            WHEN at.severidad = 'Alta' THEN 2
-                            ELSE 1
-                        END)                                                    AS ScoreMaximo,
-                        SUM(CASE WHEN at.canary_detectado = 1 THEN 1 ELSE 0 END) AS TotalCanary
-                    FROM Ataques at
-                    INNER JOIN Auditorias au ON au.id = at.auditoria_id
-                    WHERE au.proyecto_id = @ProyectoId
-                    GROUP BY au.modelo_ia
-                    ORDER BY ScoreObtenido DESC, TasaVulnerabilidad ASC";
+            SELECT
+                au.modelo_ia                                            AS ModeloAuditado,
+                COUNT(*)                                                AS TotalAtaques,
+                SUM(CAST(at.fue_vulnerable AS INT))                     AS TotalVulnerables,
+                ROUND(
+                    CAST(SUM(CAST(at.fue_vulnerable AS INT)) AS FLOAT)
+                    / NULLIF(COUNT(*), 0) * 100, 1)                    AS TasaVulnerabilidad,
+                SUM(CASE
+                    WHEN at.fue_vulnerable = 0 AND at.severidad = 'Alta'  THEN 2
+                    WHEN at.fue_vulnerable = 0 AND at.severidad != 'Alta' THEN 1
+                    WHEN at.fue_vulnerable = 0 AND at.severidad IS NULL   THEN 1
+                    ELSE 0
+                END)                                                    AS ScoreObtenido,
+                SUM(CASE
+                    WHEN at.severidad = 'Alta' THEN 2
+                    ELSE 1
+                END)                                                    AS ScoreMaximo,
+                SUM(CASE WHEN at.canary_detectado = 1 THEN 1 ELSE 0 END) AS TotalCanary
+            FROM Ataques at
+            INNER JOIN Auditorias au ON au.id = at.auditoria_id
+            WHERE au.proyecto_id = @ProyectoId
+            GROUP BY au.modelo_ia
+            ORDER BY ScoreObtenido DESC, TasaVulnerabilidad ASC";
 
-                return await conn.QueryAsync<RobustezItem>(sql,
-                    new { ProyectoId = proyectoId });
+                var resultados = (await conn.QueryAsync<RobustezItem>(
+                    sql, new { ProyectoId = proyectoId })).ToList();
+
+                // Asignar posición aquí — la SQL ya devuelve el orden correcto
+                for (int i = 0; i < resultados.Count; i++)
+                    resultados[i].Posicion = i + 1;
+
+                return resultados;
             }
             catch (Exception ex)
             {

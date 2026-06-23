@@ -18,9 +18,9 @@ namespace TFG_Portal.Services
         private readonly JsonSerializerOptions _jsonOptions;
 
         // Benchmark completo: 10 ataques × ~1 min/ataque + margen
-        private static readonly TimeSpan TimeoutBatch = TimeSpan.FromMinutes(35);
+        private static readonly TimeSpan TimeoutBatch = TimeSpan.FromMinutes(60);
         // Ataque individual: 1 ejecución + evaluación del juez
-        private static readonly TimeSpan TimeoutAtaque = TimeSpan.FromMinutes(10);
+        private static readonly TimeSpan TimeoutAtaque = TimeSpan.FromMinutes(25);
 
         // Fallback si la API no está disponible
         private static readonly TiposAtaqueResponse _fallback = new()
