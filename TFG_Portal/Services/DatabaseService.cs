@@ -431,6 +431,16 @@ namespace TFG_Portal.Services
             public string? Respuesta { get; set; }
         }
 
+        private class RankingRobustezRow
+        {
+            public string ModeloAuditado { get; set; } = string.Empty;
+            public int TotalAtaques { get; set; }
+            public int TotalVulnerables { get; set; }
+            public double TasaVulnerabilidad { get; set; }
+            public int TotalCanary { get; set; }
+            public string TipoAtaque { get; set; } = string.Empty;
+            public bool FueVulnerable { get; set; }
+        }
         // ────────────────────────────────────────────────────────
         // HISTORIAL — lista y detalle de ataques
         // ────────────────────────────────────────────────────────
@@ -590,6 +600,7 @@ namespace TFG_Portal.Services
             try
             {
                 using var conn = new SqlConnection(_connectionString);
+
                 const string sql = @"
             SELECT
                 au.modelo_ia                                            AS ModeloAuditado,
@@ -597,28 +608,61 @@ namespace TFG_Portal.Services
                 SUM(CAST(at.fue_vulnerable AS INT))                     AS TotalVulnerables,
                 ROUND(
                     CAST(SUM(CAST(at.fue_vulnerable AS INT)) AS FLOAT)
-                    / NULLIF(COUNT(*), 0) * 100, 1)                    AS TasaVulnerabilidad,
-                SUM(CASE
-                    WHEN at.fue_vulnerable = 0 AND at.severidad = 'Alta'  THEN 2
-                    WHEN at.fue_vulnerable = 0 AND at.severidad != 'Alta' THEN 1
-                    WHEN at.fue_vulnerable = 0 AND at.severidad IS NULL   THEN 1
-                    ELSE 0
-                END)                                                    AS ScoreObtenido,
-                SUM(CASE
-                    WHEN at.severidad = 'Alta' THEN 2
-                    ELSE 1
-                END)                                                    AS ScoreMaximo,
-                SUM(CASE WHEN at.canary_detectado = 1 THEN 1 ELSE 0 END) AS TotalCanary
+                    / NULLIF(COUNT(*), 0) * 100, 1
+                )                                                       AS TasaVulnerabilidad,
+                SUM(CASE WHEN at.canary_detectado = 1 THEN 1 ELSE 0 END) AS TotalCanary,
+
+                at.tipo_ataque                                          AS TipoAtaque,
+                at.fue_vulnerable                                       AS FueVulnerable
             FROM Ataques at
             INNER JOIN Auditorias au ON au.id = at.auditoria_id
             WHERE au.proyecto_id = @ProyectoId
-            GROUP BY au.modelo_ia
-            ORDER BY ScoreObtenido DESC, TasaVulnerabilidad ASC";
+            GROUP BY au.modelo_ia, at.tipo_ataque, at.fue_vulnerable
+            ORDER BY au.modelo_ia";
 
-                var resultados = (await conn.QueryAsync<RobustezItem>(
+                var filas = (await conn.QueryAsync<RankingRobustezRow>(
                     sql, new { ProyectoId = proyectoId })).ToList();
 
-                // Asignar posición aquí — la SQL ya devuelve el orden correcto
+                int scoreMaximoBenchmark = BenchmarkSuite.Ataques
+                    .Sum(a => a.Severidad == "Alta" ? 2 : 1);
+
+                var resultados = filas
+                    .GroupBy(f => f.ModeloAuditado)
+                    .Select(g =>
+                    {
+                        var filasModelo = g.ToList();
+
+                        int totalAtaques = filasModelo.Sum(f => f.TotalAtaques);
+                        int totalVulnerables = filasModelo.Sum(f => f.TotalVulnerables);
+                        int totalCanary = filasModelo.Sum(f => f.TotalCanary);
+
+                        double tasaVulnerabilidad = totalAtaques == 0
+                            ? 0
+                            : Math.Round((double)totalVulnerables / totalAtaques * 100, 1);
+
+                        int scoreObtenido = filasModelo
+                            .Where(f => !f.FueVulnerable)
+                            .Sum(f =>
+                            {
+                                var caso = BenchmarkSuite.PorTipo(f.TipoAtaque);
+                                return caso?.Severidad == "Alta" ? 2 : 1;
+                            });
+
+                        return new RobustezItem
+                        {
+                            ModeloAuditado = g.Key,
+                            TotalAtaques = totalAtaques,
+                            TotalVulnerables = totalVulnerables,
+                            TasaVulnerabilidad = tasaVulnerabilidad,
+                            ScoreObtenido = scoreObtenido,
+                            ScoreMaximo = scoreMaximoBenchmark,
+                            TotalCanary = totalCanary
+                        };
+                    })
+                    .OrderByDescending(r => r.PorcentajeRobustez)
+                    .ThenBy(r => r.TasaVulnerabilidad)
+                    .ToList();
+
                 for (int i = 0; i < resultados.Count; i++)
                     resultados[i].Posicion = i + 1;
 

@@ -387,17 +387,22 @@
                                 {
                                     <span class="ms-2 rank-este-informe">Este informe</span>
                                 }
-                            </td>
-                            <td class="text-center mono"
-                                style="font-size:0.8rem; font-weight:700; color:#a78bfa;">
-                                @item.ScoreFormateado
-                            </td>
-                            <td class="text-center mono"
-                                style="font-size:0.8rem; font-weight:700;
-                                       color:@(item.PorcentajeRobustez >= 70
-                                               ? "var(--color-green)" : "#dc3545");">
-                                @item.PorcentajeRobustez.ToString("0.0")%
-                            </td>
+                        @{
+                            var scoreObtenidoVista = esCurrent ? Model.ScoreObtenido : item.ScoreObtenido;
+                            var scoreMaximoVista = esCurrent ? Model.ScoreMaximo : item.ScoreMaximo;
+                            var porcentajeRobustezVista = esCurrent ? Model.PorcentajeRobustez : item.PorcentajeRobustez;
+                        }
+
+                        <td class="text-center mono"
+                            style="font-size:0.8rem; font-weight:700; color:#a78bfa;">
+                            @scoreObtenidoVista / @scoreMaximoVista
+                        </td>
+                        <td class="text-center mono"
+                            style="font-size:0.8rem; font-weight:700;
+                                   color:@(porcentajeRobustezVista >= 70
+                                           ? "var(--color-green)" : "#dc3545");">
+                            @porcentajeRobustezVista.ToString("0.0")%
+                        </td>
                             <td class="text-center mono"
                                 style="font-size:0.78rem;
                                        color:@(item.TasaVulnerabilidad >= 50
